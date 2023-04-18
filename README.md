@@ -60,13 +60,13 @@ FSR2 for Unity requires the application to provide a few services that it can't 
 
 #### Resource management
 
-By default, FSR2 for Unity loads its shaders directly from a Resources folder. This is not recommended behavior and many applications choose to manage shaders in a different way. To accomodate this, FSR2 for Unity makes it possible to override the method by which shaders are loaded and unloaded. For example, they may be loaded from an asset bundle instead.
+By default, FSR2 for Unity loads its shaders directly from a Resources folder. This is not recommended behavior and many applications choose to manage shaders in a different way. To accomodate this, FSR2 for Unity makes it possible to override the methods by which shaders are loaded and unloaded. For example, they may be loaded from an asset bundle instead.
 
 #### Mipmap biasing
 
 One key part of FSR2 is adjusting the mipmap bias of textures. Normally when lowering the rendering resolution, Unity will also sample textures at lower mipmap levels to prevent texture aliasing. When upscaling is in use, this will result in noticeably blurry textures. To combat this, FSR2 suggests that applications adjust the mipmap bias for texture content in the scene that is to be upscaled. This is [further explained in the FSR2 documentation](https://github.com/GPUOpen-Effects/FidelityFX-FSR2#mipmap-biasing).
 
-Unfortunately Unity has no single unified way to identify textures that are part of the 3D scene, nor does it offer a way to set a global mipmap bias at run-time. There are also many ways in which textures may or may not be applied to the scene, depending on which third-party asset packages the application chooses to use. This makes the implementation of texture mipmap biasing a highly application-specific thing.
+Unfortunately Unity has no single unified way to identify textures that are part of the 3D scene, nor does it offer a way to set a global mipmap bias at run-time. There are also many different ways in which textures may be applied to a scene, depending on which third-party asset packages the application chooses to use. This makes the implementation of texture mipmap biasing a highly application-specific thing.
 
 The default implementation in `Fsr2CallbackBase` will very naively look up every `Texture2D` object in the current scene and apply the mipmap bias offset to it. This generally works fine but it will also include textures that shouldn't have the mipmap bias applied (e.g. UI textures) and potentially misses textures that should have the mipmap bias applied (e.g. texture arrays for terrain rendering). You will want to override this callback to more selectively specify the textures that need to have this mipmap bias applied, and possibly store the current mipmap bias value to retroactively apply it to assets that are loaded on demand.
 
@@ -74,9 +74,9 @@ The default implementation in `Fsr2CallbackBase` will very naively look up every
 
 FSR2 relies on depth and motion vector data to track pixels across frames and to detect areas that 'became visible' on the current frame and therefore should not be reconstructed using historical data. For all of this to work properly, it is very important that the application renders correct motion vector data for all moving objects in the scene, in addition to camera motion vectors. 
 
-Unfortunately not all community-made Unity asset packages have gotten the message that temporal image techniques are here to stay, and either don't output motion vectors from their shaders or poorly document how this is enabled. This is not helped by Unity itself being rather obscure in how motion vectors are to be accessed and rendered.
+Unfortunately not all community-made Unity asset packages have gotten the message that temporal image techniques are here to stay, and either don't output motion vectors from their shaders or poorly document how this is enabled. This is not helped by Unity itself being rather obscure in how motion vectors are to be rendered and accessed.
 
-If a moving object does not render motion vectors, you will clearly notice this as visible streaks appearing behind it. On small objects like individual particles this isn't a huge problem, but on things like dense foliage it will turn everything into a blurry, smeary soup.
+If a moving object does not render motion vectors, you will clearly notice this as pixellated streaks appearing behind it. On small objects like individual particles this isn't a huge problem, but on things like dense foliage it will turn everything into a blurry, smeary soup.
 
 Example of a tree waving in the wind reconstructed without motion vectors, causing visible streaking artifacts:
 
@@ -112,14 +112,24 @@ Of course this means that you have to modify your application's shaders to outpu
 
 The manually generated reactive mask can be supplied to the `Fsr2ImageEffect` script through its Reactive Mask texture parameter.
 
+### Exposure
+
+FSR2 accepts a 1x1 input texture containing an exposure value for the current frame. Typically this exposure value is output by an eye adaptation shader, as is the case with PPV2's Auto Exposure effect. The need for this exposure value in FSR2 isn't immediately obvious, so I'll try to explain.
+
+Imagine walking from a bright outdoors area into a dark tunnel and standing still while the camera adjusts to the darkness. Without any additional information, FSR2 will see the pixels changing as the picture becomes brighter and will attempt to temporally reconstruct the intended image. This reconstruction is visible as a slight fizzling effect, especially on lower resolutions, lower framerates and lower quality modes. In a situation like this, FSR2 needs to be told that it's not the geometry that is changing but rather the light level.
+
+By providing FSR2 with the image's current exposure value, it can derive each pixel's original unadjusted color value and will be able to tell that the pixels are not actually changing. This results in a sharper and more stable image, without any temporal fizzling artifacts.
+
+The exposure value can be supplied to the `Fsr2ImageEffect` script through its Exposure texture parameter. PPV2's Auto Exposure effect outputs a compatible texture, however this value is kept internal by PPV2 so it'll require some trickery to plug this into FSR2. It's also possible to allow FSR2 to compute an exposure value by itself by enabling the Auto Exposure feature, however results may vary and this feature has some issues on a couple of platforms.
+
 ## Known issues
 
 - Auto Exposure causes a black screen on some platforms (OpenGL Core, Xbox One).  
   Disabling and re-enabling FSR2 will sometimes cause auto-exposure to suddenly start working. It's uncertain what is causing this. It may be a simple case of the original auto-exposure shader not having been written/tested with these platforms in mind.  
   Workaround: disable Auto Exposure on affected platforms. It's generally better for the application to provide an exposure value anyway, rather than relying on an automatically generated value.
 - Auto Reactive Mask causes jitter artifacting on Xbox One when ESRAM is enabled.  
-  This is due to an unresolved issue in Unity related to render texture blitting. For some reason the opaque-only render buffer used as reference for generating the reactive mask has an incorrect jitter offset (possible it's a render buffer from a previous frame), causing the reactive mask to be incorrect as well.  
-  Workaround: either disable ESRAM Usage or disable the Auto Generate Reactive Mask feature.
+  This is due to some kind of issue in Unity related to render texture blitting. For unknown reasons the opaque-only render buffer used as reference for generating the reactive mask has an incorrect jitter offset (possibly it's a render buffer from a previous frame), causing the reactive mask to be incorrect as well.  
+  Workaround: either disable ESRAM usage or disable the Auto Generate Reactive Mask feature.
 - Texture mipmap bias adjustment is not working on MacOS Metal.  
   This causes blurry textures as the internal render resolution is lowered. This is a Unity issue of some sort.  
   Workaround: no known workaround yet.
