@@ -404,4 +404,48 @@ namespace FidelityFX
             commandBuffer.DispatchCompute(ComputeShader, KernelIndex, dispatchX, dispatchY, 1);
         }
     }
+
+    internal class Fsr2TcrAutogeneratePipeline : Fsr2Pipeline
+    {
+        private readonly ComputeBuffer _tcrAutogenerateConstants;
+
+        public Fsr2TcrAutogeneratePipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants, ComputeBuffer tcrAutogenerateConstants)
+            : base(contextDescription, resources, constants)
+        {
+            _tcrAutogenerateConstants = tcrAutogenerateConstants;
+            
+            LoadComputeShader("FSR2/ffx_fsr2_tcr_autogen_pass");
+        }
+
+        public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
+        {
+            if (dispatchParams.ColorOpaqueOnly.HasValue)
+                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvOpaqueOnly, dispatchParams.ColorOpaqueOnly.Value, 0, RenderTextureSubElement.Color);
+            
+            if (dispatchParams.Color.HasValue)
+                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, dispatchParams.Color.Value, 0, RenderTextureSubElement.Color);
+            
+            if (dispatchParams.MotionVectors.HasValue)
+                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, dispatchParams.MotionVectors.Value);
+            
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvPrevColorPreAlpha, Resources.PrevPreAlpha[frameIndex ^ 1]);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvPrevColorPostAlpha, Resources.PrevPostAlpha[frameIndex ^ 1]);
+
+            if (dispatchParams.Reactive.HasValue)
+                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvReactiveMask, dispatchParams.Reactive.Value);
+
+            if (dispatchParams.TransparencyAndComposition.HasValue)
+                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvTransparencyAndCompositionMask, dispatchParams.TransparencyAndComposition.Value);
+
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavAutoReactive, Resources.AutoReactive);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavAutoComposition, Resources.AutoComposition);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavPrevColorPreAlpha, Resources.PrevPreAlpha[frameIndex]);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavPrevColorPostAlpha, Resources.PrevPostAlpha[frameIndex]);
+            
+            commandBuffer.SetComputeConstantBufferParam(ComputeShader, Fsr2ShaderIDs.CbFsr2, Constants, 0, Marshal.SizeOf<Fsr2.Fsr2Constants>());
+            commandBuffer.SetComputeConstantBufferParam(ComputeShader, Fsr2ShaderIDs.CbGenReactive, _tcrAutogenerateConstants, 0, Marshal.SizeOf<Fsr2.GenerateReactiveConstants2>());
+            
+            commandBuffer.DispatchCompute(ComputeShader, KernelIndex, dispatchX, dispatchY, 1);
+        }
+    }
 }

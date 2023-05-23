@@ -329,6 +329,12 @@ MonoBehaviour:
     cutoffThreshold: 0.2
     binaryValue: 0.9
     flags: 13
+  autoGenerateTransparencyAndComposition: 0
+  generateTransparencyAndCompositionParameters:
+    autoTcThreshold: 0.05
+    autoTcScale: 1
+    autoReactiveScale: 5
+    autoReactiveMax: 0.9
   outputMotionVectors: {fileID: 0}
 --- !u!1001 &1313173313
 PrefabInstance:

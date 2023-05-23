@@ -47,6 +47,7 @@ namespace FidelityFX
         private Fsr2Pipeline _rcasPipeline;
         private Fsr2Pipeline _computeLuminancePyramidPipeline;
         private Fsr2Pipeline _generateReactivePipeline;
+        private Fsr2Pipeline _tcrAutogeneratePipeline;
 
         private readonly Fsr2Resources _resources = new Fsr2Resources();
 
@@ -66,6 +67,10 @@ namespace FidelityFX
         private readonly Fsr2.GenerateReactiveConstants[] _generateReactiveConstantsArray = { new Fsr2.GenerateReactiveConstants() };
         private ref Fsr2.GenerateReactiveConstants GenReactiveConsts => ref _generateReactiveConstantsArray[0];
 
+        private ComputeBuffer _tcrAutogenerateConstantsBuffer;
+        private readonly Fsr2.GenerateReactiveConstants2[] _tcrAutogenerateConstantsArray = { new Fsr2.GenerateReactiveConstants2() };
+        private ref Fsr2.GenerateReactiveConstants2 TcrAutoGenConsts => ref _tcrAutogenerateConstantsArray[0];
+
         private bool _firstExecution;
         private Vector2 _previousJitterOffset;
         private int _resourceFrameIndex;
@@ -79,6 +84,7 @@ namespace FidelityFX
             _spdConstantsBuffer = CreateConstantBuffer<Fsr2.SpdConstants>();
             _rcasConstantsBuffer = CreateConstantBuffer<Fsr2.RcasConstants>();
             _generateReactiveConstantsBuffer = CreateConstantBuffer<Fsr2.GenerateReactiveConstants>();
+            _tcrAutogenerateConstantsBuffer = CreateConstantBuffer<Fsr2.GenerateReactiveConstants2>();
 
             // Set defaults
             _firstExecution = true;
@@ -100,10 +106,12 @@ namespace FidelityFX
             _accumulateSharpenPipeline = new Fsr2AccumulateSharpenPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
             _rcasPipeline = new Fsr2RcasPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer, _rcasConstantsBuffer);
             _generateReactivePipeline = new Fsr2GenerateReactivePipeline(_contextDescription, _resources, _generateReactiveConstantsBuffer);
+            _tcrAutogeneratePipeline = new Fsr2TcrAutogeneratePipeline(_contextDescription, _resources, _fsr2ConstantsBuffer, _tcrAutogenerateConstantsBuffer);
         }
         
         public void Destroy()
         {
+            DestroyPipeline(ref _tcrAutogeneratePipeline);
             DestroyPipeline(ref _generateReactivePipeline);
             DestroyPipeline(ref _computeLuminancePyramidPipeline);
             DestroyPipeline(ref _rcasPipeline);
@@ -115,6 +123,7 @@ namespace FidelityFX
             
             _resources.Destroy();
             
+            DestroyConstantBuffer(ref _tcrAutogenerateConstantsBuffer);
             DestroyConstantBuffer(ref _generateReactiveConstantsBuffer);
             DestroyConstantBuffer(ref _rcasConstantsBuffer);
             DestroyConstantBuffer(ref _spdConstantsBuffer);
@@ -155,6 +164,21 @@ namespace FidelityFX
                 dispatchParams.Exposure = _resources.AutoExposure;
             else if (dispatchParams.Exposure == null) 
                 dispatchParams.Exposure = _resources.DefaultExposure;
+
+            if (dispatchParams.EnableAutoReactive)
+            {
+                // Create the auto-TCR resources only when we need them
+                if (_resources.AutoReactive == null)
+                    _resources.CreateTcrAutogenResources(_contextDescription);
+                
+                if (resetAccumulation)
+                    commandBuffer.Blit(_resources.PrevPreAlpha[frameIndex ^ 1], dispatchParams.ColorOpaqueOnly ?? Fsr2ShaderIDs.SrvOpaqueOnly);
+            }
+            else if (_resources.AutoReactive != null)
+            {
+                // Destroy the auto-TCR resources if we don't use the feature 
+                _resources.DestroyTcrAutogenResources();
+            }
             
             if (dispatchParams.Reactive == null) dispatchParams.Reactive = _resources.DefaultReactive;
             if (dispatchParams.TransparencyAndComposition == null) dispatchParams.TransparencyAndComposition = _resources.DefaultReactive;
@@ -192,6 +216,14 @@ namespace FidelityFX
             // Initialize constant buffers data
             _fsr2ConstantsBuffer.SetData(_fsr2ConstantsArray);
             _spdConstantsBuffer.SetData(_spdConstantsArray);
+
+            // Auto reactive
+            if (dispatchParams.EnableAutoReactive)
+            {
+                GenerateTransparencyCompositionReactive(dispatchParams, commandBuffer, frameIndex);
+                dispatchParams.Reactive = _resources.AutoReactive;
+                dispatchParams.TransparencyAndComposition = _resources.AutoComposition;
+            }
             
             // Compute luminance pyramid
             _computeLuminancePyramidPipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchThreadGroupCount.x, dispatchThreadGroupCount.y);
@@ -249,6 +281,21 @@ namespace FidelityFX
             _generateReactiveConstantsBuffer.SetData(_generateReactiveConstantsArray);
             
             ((Fsr2GenerateReactivePipeline)_generateReactivePipeline).ScheduleDispatch(commandBuffer, dispatchParams, dispatchSrcX, dispatchSrcY);
+        }
+
+        private void GenerateTransparencyCompositionReactive(Fsr2.DispatchDescription dispatchParams, CommandBuffer commandBuffer, int frameIndex)
+        {
+            const int threadGroupWorkRegionDim = 8;
+            int dispatchSrcX = (dispatchParams.RenderSize.x + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
+            int dispatchSrcY = (dispatchParams.RenderSize.y + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
+
+            TcrAutoGenConsts.autoTcThreshold = dispatchParams.AutoTcThreshold;
+            TcrAutoGenConsts.autoTcScale = dispatchParams.AutoTcScale;
+            TcrAutoGenConsts.autoReactiveScale = dispatchParams.AutoReactiveScale;
+            TcrAutoGenConsts.autoReactiveMax = dispatchParams.AutoReactiveMax;
+            _tcrAutogenerateConstantsBuffer.SetData(_tcrAutogenerateConstantsArray);
+            
+            _tcrAutogeneratePipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
         }
 
         private void SetupConstants(Fsr2.DispatchDescription dispatchParams, bool resetAccumulation)

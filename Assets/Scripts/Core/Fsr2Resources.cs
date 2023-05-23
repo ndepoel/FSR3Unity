@@ -36,11 +36,15 @@ namespace FidelityFX
         public Texture2D MaximumBiasLut;
         public RenderTexture AutoExposure;
         public RenderTexture SceneLuminance;
+        public RenderTexture AutoReactive;
+        public RenderTexture AutoComposition;
         public readonly RenderTexture[] DilatedMotionVectors = new RenderTexture[2];
         public readonly RenderTexture[] LockStatus = new RenderTexture[2];
         public readonly RenderTexture[] InternalUpscaled = new RenderTexture[2];
         public readonly RenderTexture[] LumaHistory = new RenderTexture[2];
-        
+        public readonly RenderTexture[] PrevPreAlpha = new RenderTexture[2];
+        public readonly RenderTexture[] PrevPostAlpha = new RenderTexture[2];
+
         public void Create(Fsr2.ContextDescription contextDescription)
         {
             // Generate the data for the LUT
@@ -104,6 +108,23 @@ namespace FidelityFX
             CreateDoubleBufferedResource(LumaHistory, "FSR2_LumaHistory", contextDescription.DisplaySize, GraphicsFormat.R8G8B8A8_UNorm);
         }
 
+        public void CreateTcrAutogenResources(Fsr2.ContextDescription contextDescription)
+        {
+            // Resource FSR2_AutoReactive: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R8_UNORM, FFX_RESOURCE_FLAGS_NONE
+            AutoReactive = new RenderTexture(contextDescription.MaxRenderSize.x, contextDescription.MaxRenderSize.y, 0, GraphicsFormat.R8_UNorm) { name = "FSR2_AutoReactive", enableRandomWrite = true };
+            AutoReactive.Create();
+
+            // Resource FSR2_AutoComposition: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R8_UNORM, FFX_RESOURCE_FLAGS_NONE
+            AutoComposition = new RenderTexture(contextDescription.MaxRenderSize.x, contextDescription.MaxRenderSize.y, 0, GraphicsFormat.R8_UNorm) { name = "FSR2_AutoComposition", enableRandomWrite = true };
+            AutoComposition.Create();
+
+            // Resources FSR2_PrevPreAlpha0/1: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R11G11B10_FLOAT, FFX_RESOURCE_FLAGS_NONE
+            CreateDoubleBufferedResource(PrevPreAlpha, "FSR2_PrevPreAlpha", contextDescription.MaxRenderSize, GraphicsFormat.B10G11R11_UFloatPack32);
+
+            // Resources FSR2_PrevPostAlpha0/1: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R11G11B10_FLOAT, FFX_RESOURCE_FLAGS_NONE
+            CreateDoubleBufferedResource(PrevPostAlpha, "FSR2_PrevPostAlpha", contextDescription.MaxRenderSize, GraphicsFormat.B10G11R11_UFloatPack32);
+        }
+
         private static void CreateDoubleBufferedResource(RenderTexture[] resource, string name, Vector2Int size, GraphicsFormat format)
         {
             for (int i = 0; i < 2; ++i)
@@ -115,6 +136,8 @@ namespace FidelityFX
 
         public void Destroy()
         {
+            DestroyTcrAutogenResources();
+            
             DestroyResource(LumaHistory);
             DestroyResource(InternalUpscaled);
             DestroyResource(LockStatus);
@@ -125,6 +148,14 @@ namespace FidelityFX
             DestroyResource(ref DefaultExposure);
             DestroyResource(ref MaximumBiasLut);
             DestroyResource(ref LanczosLut);
+        }
+
+        public void DestroyTcrAutogenResources()
+        {
+            DestroyResource(PrevPostAlpha);
+            DestroyResource(PrevPreAlpha);
+            DestroyResource(ref AutoComposition);
+            DestroyResource(ref AutoReactive);
         }
         
         private static void DestroyResource(ref Texture2D resource)

@@ -182,6 +182,14 @@ namespace FidelityFX
             public float CameraFar;
             public float CameraFovAngleVertical;
             public float ViewSpaceToMetersFactor;
+            
+            // EXPERIMENTAL reactive mask generation parameters
+            public bool EnableAutoReactive;
+            public RenderTargetIdentifier? ColorOpaqueOnly;
+            public float AutoTcThreshold = 0.05f;
+            public float AutoTcScale = 1.0f;
+            public float AutoReactiveScale = 5.0f;
+            public float AutoReactiveMax = 0.9f;
         }
 
         /// <summary>
@@ -251,6 +259,15 @@ namespace FidelityFX
             public float threshold;
             public float binaryValue;
             public uint flags;
+        }
+
+        [Serializable, StructLayout(LayoutKind.Sequential)]
+        internal struct GenerateReactiveConstants2
+        {
+            public float autoTcThreshold;
+            public float autoTcScale;
+            public float autoReactiveScale;
+            public float autoReactiveMax;
         }
         
         [Serializable, StructLayout(LayoutKind.Sequential)]

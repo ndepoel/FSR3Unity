@@ -47,6 +47,8 @@ namespace FidelityFX
         internal static readonly int SrvSceneLuminanceMips = Shader.PropertyToID("r_imgMips");
         internal static readonly int SrvUpscaleMaximumBiasLut = Shader.PropertyToID("r_upsample_maximum_bias_lut");
         internal static readonly int SrvDilatedReactiveMasks = Shader.PropertyToID("r_dilated_reactive_masks");
+        internal static readonly int SrvPrevColorPreAlpha = Shader.PropertyToID("r_input_prev_color_pre_alpha");
+        internal static readonly int SrvPrevColorPostAlpha = Shader.PropertyToID("r_input_prev_color_post_alpha");
 
         // Unordered access views, i.e. random read/write bindings
         internal static readonly int UavReconstructedPrevNearestDepth = Shader.PropertyToID("rw_reconstructed_previous_nearest_depth");
@@ -65,6 +67,9 @@ namespace FidelityFX
         internal static readonly int UavAutoExposure = Shader.PropertyToID("rw_auto_exposure");
         internal static readonly int UavSpdAtomicCount = Shader.PropertyToID("rw_spd_global_atomic");
         internal static readonly int UavAutoReactive = Shader.PropertyToID("rw_output_autoreactive");
+        internal static readonly int UavAutoComposition = Shader.PropertyToID("rw_output_autocomposition");
+        internal static readonly int UavPrevColorPreAlpha = Shader.PropertyToID("rw_output_prev_color_pre_alpha");
+        internal static readonly int UavPrevColorPostAlpha = Shader.PropertyToID("rw_output_prev_color_post_alpha");
 
         // Constant buffer bindings
         internal static readonly int CbFsr2 = Shader.PropertyToID("cbFSR2");

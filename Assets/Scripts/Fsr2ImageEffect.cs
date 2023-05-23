@@ -75,6 +75,25 @@ namespace FidelityFX
             public Fsr2.GenerateReactiveFlags flags = Fsr2.GenerateReactiveFlags.ApplyTonemap | Fsr2.GenerateReactiveFlags.ApplyThreshold | Fsr2.GenerateReactiveFlags.UseComponentsMax;
         }
 
+        [Tooltip("(Experimental) Automatically generate and use Reactive mask and Transparency & composition mask internally.")]
+        public bool autoGenerateTransparencyAndComposition = false;
+        [Tooltip("Parameters to control the process of auto-generating transparency and composition masks.")]
+        [SerializeField] private GenerateTcrParameters generateTransparencyAndCompositionParameters = new GenerateTcrParameters();
+        public GenerateTcrParameters GenerateTcrParams => generateTransparencyAndCompositionParameters;
+        
+        [Serializable]
+        public class GenerateTcrParameters
+        {
+            [Tooltip("Setting this value too small will cause visual instability. Larger values can cause ghosting.")]
+            [Range(0, 1)] public float autoTcThreshold = 0.05f;
+            [Tooltip("Smaller values will increase stability at hard edges of translucent objects.")]
+            [Range(0, 2)] public float autoTcScale = 1.0f;
+            [Tooltip("Larger values result in more reactive pixels.")]
+            [Range(0, 10)] public float autoReactiveScale = 5.0f;
+            [Tooltip("Maximum value reactivity can reach.")]
+            [Range(0, 1)] public float autoReactiveMax = 0.9f;
+        }
+
         [Header("Output resources")]
         [Tooltip("Optional render texture to copy motion vector data to, for additional post-processing after upscaling.")]
         public RenderTexture outputMotionVectors;
@@ -97,6 +116,7 @@ namespace FidelityFX
         private Fsr2.QualityMode _prevQualityMode;
         private Vector2Int _prevDisplaySize;
         private bool _prevGenReactiveMask;
+        private bool _prevGenTcrMasks;
 
         private CommandBuffer _dispatchCommandBuffer;
         private CommandBuffer _opaqueInputCommandBuffer;
@@ -155,7 +175,7 @@ namespace FidelityFX
             _opaqueInputCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.SrvOpaqueOnly, _renderSize.x, _renderSize.y, 0, default, GetDefaultFormat());
             _opaqueInputCommandBuffer.Blit(BuiltinRenderTextureType.CameraTarget, Fsr2ShaderIDs.SrvOpaqueOnly);
 
-            if (autoGenerateReactiveMask)
+            if (autoGenerateReactiveMask || autoGenerateTransparencyAndComposition)
             {
                 _renderCamera.AddCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
             }
@@ -165,6 +185,7 @@ namespace FidelityFX
             _prevDisplaySize = _displaySize;
             _prevQualityMode = qualityMode;
             _prevGenReactiveMask = autoGenerateReactiveMask;
+            _prevGenTcrMasks = autoGenerateTransparencyAndComposition;
         }
 
         private void OnDisable()
@@ -216,14 +237,15 @@ namespace FidelityFX
                 OnEnable();
             }
 
-            if (autoGenerateReactiveMask != _prevGenReactiveMask)
+            if ((autoGenerateReactiveMask || autoGenerateTransparencyAndComposition) != (_prevGenReactiveMask || _prevGenTcrMasks))
             {
-                if (autoGenerateReactiveMask)
+                if (autoGenerateReactiveMask || autoGenerateTransparencyAndComposition)
                     _renderCamera.AddCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
                 else
                     _renderCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
                 
                 _prevGenReactiveMask = autoGenerateReactiveMask;
+                _prevGenTcrMasks = autoGenerateTransparencyAndComposition;
             }
         }
 
@@ -287,6 +309,15 @@ namespace FidelityFX
             _dispatchDescription.ViewSpaceToMetersFactor = 1.0f; // 1 unit is 1 meter in Unity
             _dispatchDescription.Reset = _reset;
             _reset = false;
+
+            _dispatchDescription.EnableAutoReactive = autoGenerateTransparencyAndComposition;
+            if (autoGenerateTransparencyAndComposition)
+            {
+                _dispatchDescription.AutoTcThreshold = generateTransparencyAndCompositionParameters.autoTcThreshold;
+                _dispatchDescription.AutoTcScale = generateTransparencyAndCompositionParameters.autoTcScale;
+                _dispatchDescription.AutoReactiveScale = generateTransparencyAndCompositionParameters.autoReactiveScale;
+                _dispatchDescription.AutoReactiveMax = generateTransparencyAndCompositionParameters.autoReactiveMax;
+            }
 
             if (SystemInfo.usesReversedZBuffer)
             {
@@ -357,6 +388,11 @@ namespace FidelityFX
             if (autoGenerateReactiveMask)
             {
                 _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavAutoReactive);
+            }
+
+            if (autoGenerateTransparencyAndComposition)
+            {
+                _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.SrvOpaqueOnly);
             }
 
             Graphics.ExecuteCommandBuffer(_dispatchCommandBuffer);
