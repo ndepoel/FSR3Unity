@@ -26,14 +26,16 @@
 #define FFX_HLSL        // Compile for plain HLSL
 
 // Use the DXC shader compiler on modern graphics APIs to enable a few advanced features
-#if defined(SHADER_API_D3D12) || defined(SHADER_API_VULKAN) || defined(SHADER_API_METAL)
-//#pragma use_dxc   // Using DXC will currently break DX11 support since DX11 and DX12 share the same shader bytecode in Unity. Disabling this by default... *sigh*
-#endif
+// The DXC-related pragmas are disabled by default, as DXC doesn't support all platforms yet and will break on some platforms when enabled.
+// Consider this to be an experimental feature. If you want to benefit from 16-bit floating point and wave operations, and don't care about supporting older graphics APIs, then it's worth a try. 
+//#if defined(SHADER_API_D3D12) || defined(SHADER_API_VULKAN) || defined(SHADER_API_METAL)
+//#pragma use_dxc   // Using DXC will currently break DX11 support since DX11 and DX12 share the same shader bytecode in Unity.
+//#endif
 
 // Enable half precision data types on platforms that support it
-#if defined(UNITY_COMPILER_DXC) && defined(FFX_HALF)
-#pragma require Native16Bit
-#endif
+//#if defined(UNITY_COMPILER_DXC) && defined(FFX_HALF)
+//#pragma require Native16Bit
+//#endif
 
 // Hack to work around the lack of texture atomics on Metal
 #if defined(SHADER_API_METAL)
