@@ -71,6 +71,8 @@
         FfxFloat32    fDeltaTime;
         FfxFloat32    fDynamicResChangeFactor;
         FfxFloat32    fViewSpaceToMetersFactor;
+
+        FfxInt32      iDummy;
     };
 
 #define FFX_FSR2_CONSTANT_BUFFER_1_SIZE (sizeof(cbFSR2) / 4)  // Number of 32-bit values. This must be kept in sync with the cbFSR2 size.

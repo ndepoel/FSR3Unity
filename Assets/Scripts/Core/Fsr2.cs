@@ -231,6 +231,8 @@ namespace FidelityFX
             public float deltaTime;
             public float dynamicResChangeFactor;
             public float viewSpaceToMetersFactor;
+
+            public int dummy;
         }
         
         [Serializable, StructLayout(LayoutKind.Sequential)]
