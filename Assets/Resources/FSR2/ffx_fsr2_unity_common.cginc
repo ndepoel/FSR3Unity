@@ -43,3 +43,39 @@
 #define InterlockedMin(dest, val)           { (dest) = min((dest), (val)); }
 #define InterlockedMax(dest, val)           { (dest) = max((dest), (val)); }
 #endif
+
+// Workaround for HDRP using texture arrays for its camera buffers on some platforms
+// The below defines are copied from: Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/TextureXR.hlsl
+#if defined(UNITY_FSR2_HDRP)
+    // Must be in sync with C# with property useTexArray in TextureXR.cs
+    #if ((defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12)) && !defined(SHADER_API_XBOXONE) && !defined(SHADER_API_GAMECORE)) || defined(SHADER_API_PSSL) || defined(SHADER_API_VULKAN)
+        #define UNITY_TEXTURE2D_X_ARRAY_SUPPORTED
+    #endif
+
+    // Control if TEXTURE2D_X macros will expand to texture arrays
+    #if defined(UNITY_TEXTURE2D_X_ARRAY_SUPPORTED) && !defined(DISABLE_TEXTURE2D_X_ARRAY)
+        #define USE_TEXTURE2D_X_AS_ARRAY
+    #endif
+
+    // Early defines for single-pass instancing
+    #if defined(STEREO_INSTANCING_ON) && defined(UNITY_TEXTURE2D_X_ARRAY_SUPPORTED)
+        #define UNITY_STEREO_INSTANCING_ENABLED
+    #endif
+
+    // Helper macros to handle XR single-pass with Texture2DArray
+    #if defined(USE_TEXTURE2D_X_AS_ARRAY)
+
+        // Only single-pass stereo instancing used array indexing
+        #if defined(UNITY_STEREO_INSTANCING_ENABLED)
+            #define SLICE_ARRAY_INDEX   unity_StereoEyeIndex
+        #else
+            #define SLICE_ARRAY_INDEX  0
+        #endif
+
+        // Declare and sample camera buffers as texture arrays
+        #define UNITY_FSR2_TEX2D(type)      Texture2DArray<type>
+        #define UNITY_FSR2_POS(pxPos)       FfxUInt32x3(pxPos, SLICE_ARRAY_INDEX)
+        #define UNITY_FSR2_UV(uv)           FfxFloat32x3(uv, SLICE_ARRAY_INDEX)
+        
+    #endif
+#endif

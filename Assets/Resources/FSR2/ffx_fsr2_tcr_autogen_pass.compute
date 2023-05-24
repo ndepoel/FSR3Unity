@@ -21,12 +21,11 @@
 #pragma kernel CS
 
 #pragma multi_compile_local __ FFX_HALF
-#pragma multi_compile_local __ FFX_FSR2_OPTION_REPROJECT_USE_LANCZOS_TYPE
-#pragma multi_compile_local __ FFX_FSR2_OPTION_HDR_COLOR_INPUT
 #pragma multi_compile_local __ FFX_FSR2_OPTION_LOW_RESOLUTION_MOTION_VECTORS
 #pragma multi_compile_local __ FFX_FSR2_OPTION_JITTERED_MOTION_VECTORS
 #pragma multi_compile_local __ FFX_FSR2_OPTION_INVERTED_DEPTH
-#pragma multi_compile_local __ FFX_FSR2_OPTION_APPLY_SHARPENING
+
+#pragma multi_compile_local __ UNITY_FSR2_HDRP
 
 #include "ffx_fsr2_unity_common.cginc"
 

@@ -124,6 +124,17 @@
 #endif // #if FFX_FSR2_EMBED_ROOTSIG
 #endif // #if defined(FFX_GPU)
 
+// Declare and sample camera buffers as regular textures, unless overridden
+#if !defined(UNITY_FSR2_TEX2D)
+#define UNITY_FSR2_TEX2D(type)      Texture2D<type>
+#endif
+#if !defined(UNITY_FSR2_POS)
+#define UNITY_FSR2_POS(pxPos)       (pxPos)
+#endif
+#if !defined(UNITY_FSR2_UV)
+#define UNITY_FSR2_UV(uv)           (uv)
+#endif
+
 /* Define getter functions in the order they are defined in the CB! */
 FfxInt32x2 RenderSize()
 {
@@ -226,10 +237,10 @@ SamplerState s_LinearClamp : register(s1);
 
 // SRVs
 #if defined(FFX_INTERNAL)
-    Texture2D<FfxFloat32x4>                       r_input_opaque_only                       : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_OPAQUE_ONLY);
-    Texture2D<FfxFloat32x4>                       r_input_color_jittered                    : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_COLOR);
-    Texture2D<FfxFloat32x4>                       r_input_motion_vectors                    : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_MOTION_VECTORS);
-    Texture2D<FfxFloat32>                         r_input_depth                             : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_DEPTH);
+    UNITY_FSR2_TEX2D(FfxFloat32x4)                r_input_opaque_only                       : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_OPAQUE_ONLY);
+    UNITY_FSR2_TEX2D(FfxFloat32x4)                r_input_color_jittered                    : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_COLOR);
+    UNITY_FSR2_TEX2D(FfxFloat32x4)                r_input_motion_vectors                    : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_MOTION_VECTORS);
+    UNITY_FSR2_TEX2D(FfxFloat32)                  r_input_depth                             : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_DEPTH);
     Texture2D<FfxFloat32x2>                       r_input_exposure                          : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_EXPOSURE);
     Texture2D<FfxFloat32x2>                       r_auto_exposure                           : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_AUTO_EXPOSURE);
     Texture2D<FfxFloat32>                         r_reactive_mask                           : FFX_FSR2_DECLARE_SRV(FFX_FSR2_RESOURCE_IDENTIFIER_INPUT_REACTIVE_MASK);
@@ -280,16 +291,16 @@ SamplerState s_LinearClamp : register(s1);
 
 #else // #if defined(FFX_INTERNAL)
     #if defined FSR2_BIND_SRV_INPUT_COLOR
-        Texture2D<FfxFloat32x4>                   r_input_color_jittered                    : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_COLOR);
+        UNITY_FSR2_TEX2D(FfxFloat32x4)            r_input_color_jittered                    : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_COLOR);
     #endif
     #if defined FSR2_BIND_SRV_INPUT_OPAQUE_ONLY
-        Texture2D<FfxFloat32x4>                   r_input_opaque_only                       : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_OPAQUE_ONLY);
+        UNITY_FSR2_TEX2D(FfxFloat32x4)            r_input_opaque_only                       : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_OPAQUE_ONLY);
     #endif
     #if defined FSR2_BIND_SRV_INPUT_MOTION_VECTORS
-        Texture2D<FfxFloat32x4>                   r_input_motion_vectors                    : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_MOTION_VECTORS);
+        UNITY_FSR2_TEX2D(FfxFloat32x4)            r_input_motion_vectors                    : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_MOTION_VECTORS);
     #endif
     #if defined FSR2_BIND_SRV_INPUT_DEPTH
-        Texture2D<FfxFloat32>                     r_input_depth                             : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_DEPTH);
+        UNITY_FSR2_TEX2D(FfxFloat32)              r_input_depth                             : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_DEPTH);
     #endif 
     #if defined FSR2_BIND_SRV_INPUT_EXPOSURE
         Texture2D<FfxFloat32x2>                   r_input_exposure                          : FFX_FSR2_DECLARE_SRV(FSR2_BIND_SRV_INPUT_EXPOSURE);
@@ -437,14 +448,14 @@ FfxFloat32 SampleMipLuma(FfxFloat32x2 fUV, FfxUInt32 mipLevel)
 #if defined(FSR2_BIND_SRV_INPUT_DEPTH) || defined(FFX_INTERNAL)
 FfxFloat32 LoadInputDepth(FfxUInt32x2 iPxPos)
 {
-    return r_input_depth[iPxPos];
+    return r_input_depth[UNITY_FSR2_POS(iPxPos)];
 }
 #endif
 
 #if defined(FSR2_BIND_SRV_INPUT_DEPTH) || defined(FFX_INTERNAL)
 FfxFloat32 SampleInputDepth(FfxFloat32x2 fUV)
 {
-    return r_input_depth.SampleLevel(s_LinearClamp, fUV, 0).x;
+    return r_input_depth.SampleLevel(s_LinearClamp, UNITY_FSR2_UV(fUV), 0).x;
 }
 #endif
 
@@ -465,14 +476,14 @@ FfxFloat32 LoadTransparencyAndCompositionMask(FfxUInt32x2 iPxPos)
 #if defined(FSR2_BIND_SRV_INPUT_COLOR) || defined(FFX_INTERNAL)
 FfxFloat32x3 LoadInputColor(FfxUInt32x2 iPxPos)
 {
-    return r_input_color_jittered[iPxPos].rgb;
+    return r_input_color_jittered[UNITY_FSR2_POS(iPxPos)].rgb;
 }
 #endif
 
 #if defined(FSR2_BIND_SRV_INPUT_COLOR) || defined(FFX_INTERNAL)
 FfxFloat32x3 SampleInputColor(FfxFloat32x2 fUV)
 {
-    return r_input_color_jittered.SampleLevel(s_LinearClamp, fUV, 0).rgb;
+    return r_input_color_jittered.SampleLevel(s_LinearClamp, UNITY_FSR2_UV(fUV), 0).rgb;
 }
 #endif
 
@@ -486,7 +497,7 @@ FfxFloat32x3 LoadPreparedInputColor(FfxUInt32x2 iPxPos)
 #if defined(FSR2_BIND_SRV_INPUT_MOTION_VECTORS) || defined(FFX_INTERNAL)
 FfxFloat32x2 LoadInputMotionVector(FfxUInt32x2 iPxDilatedMotionVectorPos)
 {
-    FfxFloat32x2 fSrcMotionVector = r_input_motion_vectors[iPxDilatedMotionVectorPos].xy;
+    FfxFloat32x2 fSrcMotionVector = r_input_motion_vectors[UNITY_FSR2_POS(iPxDilatedMotionVectorPos)].xy;
 
     FfxFloat32x2 fUvMotionVector = fSrcMotionVector * MotionVectorScale();
 
@@ -759,7 +770,7 @@ void StoreDilatedReactiveMasks(FFX_PARAMETER_IN FfxUInt32x2 iPxPos, FFX_PARAMETE
 #if defined(FSR2_BIND_SRV_INPUT_OPAQUE_ONLY) || defined(FFX_INTERNAL)
 FfxFloat32x3 LoadOpaqueOnly(FFX_PARAMETER_IN FFX_MIN16_I2 iPxPos)
 {
-    return r_input_opaque_only[iPxPos].xyz;
+    return r_input_opaque_only[UNITY_FSR2_POS(iPxPos)].xyz;
 }
 #endif
 

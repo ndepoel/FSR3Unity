@@ -134,6 +134,13 @@ namespace FidelityFX
             if ((flags & Fsr2.InitializationFlags.EnableDepthInverted) != 0) shaderRef.EnableKeyword("FFX_FSR2_OPTION_INVERTED_DEPTH");
             if (useLut) shaderRef.EnableKeyword("FFX_FSR2_OPTION_REPROJECT_USE_LANCZOS_TYPE");
             if (supportedFP16) shaderRef.EnableKeyword("FFX_HALF");
+
+            // Inform the shader which render pipeline we're currently using
+            var pipeline = GraphicsSettings.currentRenderPipeline;
+            if (pipeline != null && pipeline.GetType().Name.Contains("HDRenderPipeline"))
+            {
+                shaderRef.EnableKeyword("UNITY_FSR2_HDRP");
+            }
         }
 
         private void UnloadComputeShader()
