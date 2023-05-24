@@ -10,6 +10,22 @@ Rather than attempting to integrate AMD's open source C++ libraries for FSR2, th
 
 Focus of this project lies initially on making FSR2 work with the traditional Unity built-in render pipeline. However the core FSR2 classes are render pipeline-agnostic, so there is every possibility for URP and HDRP to be supported as well in the future.
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Integration](#integration)
+  - [Callbacks](#callbacks)
+    - [Resource management](#resource-management)
+    - [Mipmap biasing](#mipmap-biasing)
+  - [Motion vectors](#motion-vectors)
+  - [Reactive mask](#reactive-mask)
+  - [Exposure](#exposure)
+- [Known issues](#known-issues)
+- [Details on implementation](#details-on-implementation)
+  - [Supporting unsupported platforms](#supporting-unsupported-platforms)
+  - [Built-in Render Pipeline upscaling](#built-in-render-pipeline-upscaling)
+  - [16-bit Floating Point support](#16-bit-floating-point-support)
+
 ## Requirements
 
 FSR2 for Unity requires Unity 2020.1 or higher. This version of Unity added support for the `multi_compile` keyword in compute shaders, which the FSR2 implementation makes use of.
@@ -27,14 +43,19 @@ Platforms tested and confirmed working:
     - OpenGL Core
 - MacOS
     - Metal
+- Android
+    - Vulkan
+- iOS
+    - Metal
 - Xbox One
 - Xbox Series X|S
 - PlayStation 4
 - PlayStation 5
     - Standard Graphics API
     - NGGC
+- Nintendo Switch
 
-Other platforms may work as well (e.g. Android, iOS, Switch) but are as of yet untested.
+The exact hardware requirements for mobile devices (Android and iOS) are still to be determined.
 
 Note that OpenGL on MacOS does not support compute shaders, so it will never be able to run FSR2.
 
@@ -138,6 +159,18 @@ The exposure value can be supplied to the `Fsr2ImageEffect` script through its E
 
 This section goes more in-depth on how the implementation of FSR2 into Unity was accomplished, as well as the rationale behind some of its design decisions. For more information on how the FSR2 algorithm itself works, see the [official documentation on Github](https://github.com/GPUOpen-Effects/FidelityFX-FSR2#the-technique).
 
+### Supporting unsupported platforms
+
+Officially, FSR2 only offers support for DX12 and Vulkan, with DX11 and Xbox implementations available at request for licensed developers. So how did we manage to get FSR2 working on OpenGL, MacOS and PlayStation?
+
+FSR2 for Unity relies heavily on Unity's ability to cross-compile HLSL and translate code to other shader languages. As it turns out, FSR2's shader codebase consists largely of very straightforward and portable HLSL code. Only a few shader keywords were necessary to make these shaders compile for DX11 and OpenGL Core in Unity, with a couple of additional patches and hacks required to make them work in Metal and PSSL as well. Additionally by translating FSR2's C++ backend code to C# code using Unity's APIs, we take advantage of Unity's platform abstractions to implement compute shader dispatch and resource management for all the platforms that we want to support.
+
+With Metal, the biggest limitation is its lack of texture atomics. FSR2's HLSL code uses three of those operations: `InterlockedAdd`, `InterlockedMin` and `InterlockedMax`. These allow values to be accumulated between multiple threads, without the risk of one thread overwriting another thread's write actions. In order to "just make it compile" I redefined these functions as simple, non-atomic code blocks. This was already enough to make FSR2 work on Metal and there were no obvious visual issues caused by this hack. It should be possible to properly reimplement these atomic functions by using a compare-and-swap technique, but I've decided to leave well enough alone for now.
+
+For PSSL, the main missing element were type definitions for the various float and vector types that FSR2 uses. These are all defined in a single common header file (`ffx_common_types.h`) and are primarily aimed at HLSL and GLSL as expected. PSSL uses different type names so in order to make the FSR2 shaders compile for PS4/5, I added the required type definitions to this header file. Additionally, the FSR2 shader code uses two type qualifiers (`unorm` and `globallycoherent`) that PSSL doesn't understand. I simply defined these keywords as blanks, which was enough to make the shaders work. Again there is probably a proper way to redefine these keywords using PSSL equivalents, but I haven't found the correct ones yet.
+
+These hacks mean that technically speaking, the FSR2 shaders are not 'correct' on Metal and PSSL. However during my testing I have not seen any problems or visual artifacts caused by these modifications, and the results look as good as they do on any other platform. It's certainly possible that there are issues that I haven't seen yet, particularly in applications with heavy use of high contrast colors and HDR lighting, but until I see a clear example of this I'm going to leave things as-is.
+
 ### Built-in Render Pipeline upscaling
 
 FSR2 for Unity performs upscaling by manipulating the camera's viewport parameters ahead of rendering, then restoring them during the post-processing phase and outputting the upscaled image directly to the camera's backbuffer. This approach has several advantages and drawbacks:
@@ -164,14 +197,12 @@ Unity also offers a dynamic resolution system (through `ScalableBufferManager`) 
 
 After looking around for alternative solutions, I came across this discussion: https://answers.unity.com/questions/1322637/best-way-to-downsample-camera-viewport.html. Using camera viewport rect manipulation turned out to be an easy, unassuming and unintrusive solution offering the best balance of platform support, performance and simplicity.
 
-### Supporting unsupported platforms
+### 16-bit Floating Point support
 
-Officially, FSR2 only offers support for DX12 and Vulkan, with DX11 and Xbox implementations available at request for licensed developers. So how did we manage to get FSR2 working on OpenGL, MacOS and PlayStation?
+FSR2 supports the use of half-precision floating point calculations (or FP16) by enabling the `FFX_HALF` keyword on its shaders. This allows FSR2 to take advantage of double-rate floating point operations on modern graphics cards to improve performance.
 
-FSR2 for Unity relies heavily on Unity's ability to cross-compile HLSL and translate code to other shader languages. As it turns out, FSR2's shader codebase consists largely of very straightforward and portable HLSL code. Only a few shader keywords were necessary to make these shaders compile for DX11 and OpenGL Core in Unity, with a couple of additional patches and hacks required to make them work in Metal and PSSL as well. Additionally by translating FSR2's C++ backend code to C# code using Unity's APIs, we take advantage of Unity's platform abstractions to implement compute shader dispatch and resource management for all the platforms that we want to support.
+FSR2 for Unity supports enabling FP16 too, however the feature is rendered practically useless by how Unity compiles shaders. By default on most non-mobile platforms, any half-precision variables and operations are compiled as 32-bit floating point anyway by Unity's shader compiler. This means on those platforms, FSR2's shaders will behave the same regardless of whether the `FFX_HALF` keyword is enabled or not.
 
-With Metal, the biggest limitation is its lack of texture atomics. FSR2's HLSL code uses three of those operations: `InterlockedAdd`, `InterlockedMin` and `InterlockedMax`. These allow values to be accumulated between multiple threads, without the risk of one thread overwriting another thread's write actions. In order to "just make it compile" I redefined these functions as simple, non-atomic code blocks. This was already enough to make FSR2 work on Metal and there were no obvious visual issues caused by this hack. It should be possible to properly reimplement these atomic functions by using a compare-and-swap technique, but I've decided to leave well enough alone for now.
+There are some exceptions however. First of all, mobile platforms should see an improvement from enabling FP16. Secondly, because the PlayStation platforms received their own custom floating point type definitions, these are not automatically detected and translated to 32-bit floating point types by Unity. This means that on PS4 Pro and PS5, enabling FP16 may have an effect and indeed, on PS5 a measurable performance improvement was observed.
 
-For PSSL, the main missing element were type definitions for the various float and vector types that FSR2 uses. These are all defined in a single common header file (`ffx_common_types.h`) and are primarily aimed at HLSL and GLSL as expected. PSSL uses different type names so in order to make the FSR2 shaders compile for PS4/5, I added the required type definitions to this header file. Additionally, the FSR2 shader code uses two type qualifiers (`unorm` and `globallycoherent`) that PSSL doesn't understand. I simply defined these keywords as blanks, which was enough to make the shaders work. Again there is probably a proper way to redefine these keywords using PSSL equivalents, but I haven't found the correct ones yet.
-
-These hacks mean that technically speaking, the FSR2 shaders are not 'correct' on Metal and PSSL. However during my testing I have not seen any problems or visual artifacts caused by these modifications, and the results look as good as they do on any other platform. It's certainly possible that there are issues that I haven't seen yet, particularly in applications with heavy use of high contrast colors and HDR lighting, but until I see a clear example of this I'm going to leave things as-is.
+Thirdly, FSR2 for Unity includes experimental support for the DXC shader compiler. Using this alternative shader compiler allows use of certain advanced shader features, such as wave operations and 16-bit floating point operations. The downside of using this compiler is that platform support is very limited; for instance DXC completely breaks DirectX 11 support, which makes it impossible to endorse the use of it. If you're not worried about this and only target platforms covered by the DXC compiler, then it may be worth enabling it in the `ffx_fsr2_unity_common.cginc` shader source file, enabling FP16 support in the inspector and measuring what the effect on performance is.
