@@ -124,9 +124,9 @@ The exposure value can be supplied to the `Fsr2ImageEffect` script through its E
 
 ## Known issues
 
-- Auto Exposure causes a black screen on some platforms (OpenGL Core, Xbox One).  
-  Disabling and re-enabling FSR2 will sometimes cause auto-exposure to suddenly start working. It's uncertain what is causing this. It may be a simple case of the original auto-exposure shader not having been written/tested with these platforms in mind.  
-  Workaround: disable Auto Exposure on affected platforms. It's generally better for the application to provide an exposure value anyway, rather than relying on an automatically generated value.
+- Enabling Auto Exposure causes artifacting on OpenGL Core.  
+  It's uncertain what is causing this. Further investigation is required.  
+  Workaround: disable Auto Exposure on affected platforms.
 - Auto Reactive Mask causes jitter artifacting on Xbox One when ESRAM is enabled.  
   This is due to some kind of issue in Unity related to render texture blitting. For unknown reasons the opaque-only render buffer used as reference for generating the reactive mask has an incorrect jitter offset (possibly it's a render buffer from a previous frame), causing the reactive mask to be incorrect as well.  
   Workaround: either disable ESRAM usage or disable the Auto Generate Reactive Mask feature.

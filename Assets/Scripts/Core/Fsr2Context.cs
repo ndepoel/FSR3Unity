@@ -210,6 +210,10 @@ namespace FidelityFX
                 commandBuffer.ClearRenderTarget(false, true, new Color(-1f, 1e8f, 0f, 0f));
             }
             
+            // Reset atomic counter to 0
+            commandBuffer.SetRenderTarget(Fsr2ShaderIDs.UavSpdAtomicCount);
+            commandBuffer.ClearRenderTarget(false, true, Color.clear);
+            
             // Auto exposure
             SetupSpdConstants(dispatchParams, out var dispatchThreadGroupCount);
             
