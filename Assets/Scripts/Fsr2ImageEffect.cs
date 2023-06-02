@@ -69,9 +69,13 @@ namespace FidelityFX
         [Serializable]
         public class GenerateReactiveParameters
         {
+            [Tooltip("A value to scale the output")]
             [Range(0, 2)] public float scale = 0.5f;
+            [Tooltip("A threshold value to generate a binary reactive mask")]
             [Range(0, 1)] public float cutoffThreshold = 0.2f;
+            [Tooltip("A value to set for the binary reactive mask")]
             [Range(0, 1)] public float binaryValue = 0.9f;
+            [Tooltip("Flags to determine how to generate the reactive mask")]
             public Fsr2.GenerateReactiveFlags flags = Fsr2.GenerateReactiveFlags.ApplyTonemap | Fsr2.GenerateReactiveFlags.ApplyThreshold | Fsr2.GenerateReactiveFlags.UseComponentsMax;
         }
 
@@ -120,6 +124,7 @@ namespace FidelityFX
 
         private CommandBuffer _dispatchCommandBuffer;
         private CommandBuffer _opaqueInputCommandBuffer;
+        private RenderTexture _colorOpaqueOnly;
 
         private Material _copyWithDepthMaterial;
 
@@ -169,11 +174,7 @@ namespace FidelityFX
             _context = Fsr2.CreateContext(_displaySize, _renderSize, Callbacks, flags);
 
             _dispatchCommandBuffer = new CommandBuffer { name = "FSR2 Dispatch" };
-
-            // Create command buffers to bind the camera's output at the right moments in the render loop
             _opaqueInputCommandBuffer = new CommandBuffer { name = "FSR2 Opaque Input" };
-            _opaqueInputCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.SrvOpaqueOnly, _renderSize.x, _renderSize.y, 0, default, GetDefaultFormat());
-            _opaqueInputCommandBuffer.Blit(BuiltinRenderTextureType.CameraTarget, Fsr2ShaderIDs.SrvOpaqueOnly);
 
             if (autoGenerateReactiveMask || autoGenerateTransparencyAndComposition)
             {
@@ -268,11 +269,19 @@ namespace FidelityFX
                 _renderCamera.aspect = (_displaySize.x * _originalRect.width) / (_displaySize.y * _originalRect.height);
                 _renderCamera.rect = new Rect(0, 0, _originalRect.width * _renderSize.x / _renderCamera.pixelWidth, _originalRect.height * _renderSize.y / _renderCamera.pixelHeight);
             }
+            
+            // Set up the opaque-only command buffer to make a copy of the camera color buffer right before transparent drawing starts 
+            _opaqueInputCommandBuffer.Clear();
+            if (autoGenerateReactiveMask || autoGenerateTransparencyAndComposition)
+            {
+                _colorOpaqueOnly = RenderTexture.GetTemporary(_renderSize.x, _renderSize.y, 0, GetDefaultFormat());
+                _opaqueInputCommandBuffer.Blit(BuiltinRenderTextureType.CameraTarget, _colorOpaqueOnly);
+            }
 
             // Set up the parameters to auto-generate a reactive mask
             if (autoGenerateReactiveMask)
             {
-                _genReactiveDescription.ColorOpaqueOnly = null;
+                _genReactiveDescription.ColorOpaqueOnly = _colorOpaqueOnly;
                 _genReactiveDescription.ColorPreUpscale = null;
                 _genReactiveDescription.OutReactive = null;
                 _genReactiveDescription.RenderSize = _renderSize;
@@ -310,9 +319,11 @@ namespace FidelityFX
             _dispatchDescription.Reset = _reset;
             _reset = false;
 
+            // Set up the parameters for the optional experimental auto-TCR feature
             _dispatchDescription.EnableAutoReactive = autoGenerateTransparencyAndComposition;
             if (autoGenerateTransparencyAndComposition)
             {
+                _dispatchDescription.ColorOpaqueOnly = _colorOpaqueOnly;
                 _dispatchDescription.AutoTcThreshold = generateTransparencyAndCompositionParameters.autoTcThreshold;
                 _dispatchDescription.AutoTcScale = generateTransparencyAndCompositionParameters.autoTcScale;
                 _dispatchDescription.AutoReactiveScale = generateTransparencyAndCompositionParameters.autoReactiveScale;
@@ -358,7 +369,6 @@ namespace FidelityFX
             {
                 _dispatchCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, _renderSize.x, _renderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
                 _context.GenerateReactiveMask(_genReactiveDescription, _dispatchCommandBuffer);
-                _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.SrvOpaqueOnly);
                 
                 _dispatchDescription.Reactive = Fsr2ShaderIDs.UavAutoReactive;
             }
@@ -390,12 +400,13 @@ namespace FidelityFX
                 _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavAutoReactive);
             }
 
-            if (autoGenerateTransparencyAndComposition)
-            {
-                _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.SrvOpaqueOnly);
-            }
-
             Graphics.ExecuteCommandBuffer(_dispatchCommandBuffer);
+            
+            if (_colorOpaqueOnly != null)
+            {
+                RenderTexture.ReleaseTemporary(_colorOpaqueOnly);
+                _colorOpaqueOnly = null;
+            }
 
             // Shut up the Unity warning about not writing to the destination texture 
             RenderTexture.active = dest;
