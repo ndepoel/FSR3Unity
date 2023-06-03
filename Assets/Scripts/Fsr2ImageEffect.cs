@@ -105,7 +105,8 @@ namespace FidelityFX
         private Fsr2Context _context;
         private Vector2Int _renderSize;
         private Vector2Int _displaySize;
-        private bool _reset;
+        private float _appliedBiasOffset;
+        private bool _resetHistory;
         
         private readonly Fsr2.DispatchDescription _dispatchDescription = new Fsr2.DispatchDescription();
         private readonly Fsr2.GenerateReactiveDescription _genReactiveDescription = new Fsr2.GenerateReactiveDescription();
@@ -119,8 +120,7 @@ namespace FidelityFX
 
         private Fsr2.QualityMode _prevQualityMode;
         private Vector2Int _prevDisplaySize;
-        private bool _prevGenReactiveMask;
-        private bool _prevGenTcrMasks;
+        private bool _prevAutoExposure;
 
         private CommandBuffer _dispatchCommandBuffer;
         private CommandBuffer _opaqueInputCommandBuffer;
@@ -141,13 +141,6 @@ namespace FidelityFX
             _displaySize = GetDisplaySize();
             Fsr2.GetRenderResolutionFromQualityMode(out var renderWidth, out var renderHeight, _displaySize.x, _displaySize.y, qualityMode);
             _renderSize = new Vector2Int(renderWidth, renderHeight);
-            
-            // Apply a mipmap bias so that textures retain their sharpness
-            float biasOffset = Fsr2.GetMipmapBiasOffset(_renderSize.x, _displaySize.x);
-            if (!float.IsNaN(biasOffset))
-            {
-                Callbacks.ApplyMipmapBias(biasOffset);
-            }
 
             if (!SystemInfo.supportsComputeShaders)
             {
@@ -164,7 +157,30 @@ namespace FidelityFX
             }
             
             _helper = GetComponent<Fsr2ImageEffectHelper>();
+            _copyWithDepthMaterial = new Material(Shader.Find("Hidden/BlitCopyWithDepth"));
             
+            CreateFsrContext();
+            CreateCommandBuffers();
+        }
+
+        private void OnDisable()
+        {
+            DestroyCommandBuffers();
+            DestroyFsrContext();
+
+            if (_copyWithDepthMaterial != null)
+            {
+                Destroy(_copyWithDepthMaterial);
+                _copyWithDepthMaterial = null;
+            }
+            
+            // Restore the camera's original state
+            _renderCamera.depthTextureMode = _originalDepthTextureMode;
+            _renderCamera.targetTexture = _originalRenderTarget;
+        }
+
+        private void CreateFsrContext()
+        {
             // Initialize FSR2 context
             Fsr2.InitializationFlags flags = 0;
             if (_renderCamera.allowHDR) flags |= Fsr2.InitializationFlags.EnableHighDynamicRange;
@@ -173,41 +189,33 @@ namespace FidelityFX
 
             _context = Fsr2.CreateContext(_displaySize, _renderSize, Callbacks, flags);
 
-            _dispatchCommandBuffer = new CommandBuffer { name = "FSR2 Dispatch" };
-            _opaqueInputCommandBuffer = new CommandBuffer { name = "FSR2 Opaque Input" };
-
-            if (autoGenerateReactiveMask || autoGenerateTransparencyAndComposition)
-            {
-                _renderCamera.AddCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
-            }
-
-            _copyWithDepthMaterial = new Material(Shader.Find("Hidden/BlitCopyWithDepth"));
-
             _prevDisplaySize = _displaySize;
             _prevQualityMode = qualityMode;
-            _prevGenReactiveMask = autoGenerateReactiveMask;
-            _prevGenTcrMasks = autoGenerateTransparencyAndComposition;
+            _prevAutoExposure = enableAutoExposure;
+            
+            ApplyMipmapBias();
         }
 
-        private void OnDisable()
+        private void DestroyFsrContext()
         {
-            // Undo the current mipmap bias offset
-            float biasOffset = Fsr2.GetMipmapBiasOffset(_renderSize.x, _prevDisplaySize.x);
-            if (!float.IsNaN(biasOffset))
-            {
-                Callbacks.ApplyMipmapBias(-biasOffset);
-            }
-
-            // Restore the camera's original state
-            _renderCamera.depthTextureMode = _originalDepthTextureMode;
-            _renderCamera.targetTexture = _originalRenderTarget;
-
-            if (_copyWithDepthMaterial != null)
-            {
-                Destroy(_copyWithDepthMaterial);
-                _copyWithDepthMaterial = null;
-            }
+            UndoMipmapBias();
             
+            if (_context != null)
+            {
+                _context.Destroy();
+                _context = null;
+            }
+        }
+
+        private void CreateCommandBuffers()
+        {
+            _dispatchCommandBuffer = new CommandBuffer { name = "FSR2 Dispatch" };
+            _opaqueInputCommandBuffer = new CommandBuffer { name = "FSR2 Opaque Input" };
+            _renderCamera.AddCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
+        }
+
+        private void DestroyCommandBuffers()
+        {
             if (_opaqueInputCommandBuffer != null)
             {
                 _renderCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
@@ -220,39 +228,49 @@ namespace FidelityFX
                 _dispatchCommandBuffer.Release();
                 _dispatchCommandBuffer = null;
             }
-
-            if (_context != null)
+        }
+        
+        private void ApplyMipmapBias()
+        {
+            // Apply a mipmap bias so that textures retain their sharpness
+            float biasOffset = Fsr2.GetMipmapBiasOffset(_renderSize.x, _displaySize.x);
+            if (!float.IsNaN(biasOffset) && !float.IsInfinity(biasOffset))
             {
-                _context.Destroy();
-                _context = null;
+                Callbacks.ApplyMipmapBias(biasOffset);
+                _appliedBiasOffset = biasOffset;
+            }
+            else
+            {
+                _appliedBiasOffset = 0f;
+            }
+        }
+
+        private void UndoMipmapBias()
+        {
+            // Undo the current mipmap bias offset
+            if (!float.IsNaN(_appliedBiasOffset) && !float.IsInfinity(_appliedBiasOffset) && _appliedBiasOffset != 0f)
+            {
+                Callbacks.ApplyMipmapBias(-_appliedBiasOffset);
+                _appliedBiasOffset = 0f;
             }
         }
 
         private void Update()
         {
+            // Monitor for any changes in parameters that require a reset of the FSR2 context
             var displaySize = GetDisplaySize();
-            if (displaySize.x != _prevDisplaySize.x || displaySize.y != _prevDisplaySize.y || qualityMode != _prevQualityMode)
+            if (displaySize.x != _prevDisplaySize.x || displaySize.y != _prevDisplaySize.y || qualityMode != _prevQualityMode || enableAutoExposure != _prevAutoExposure)
             {
                 // Force all resources to be destroyed and recreated with the new settings
                 OnDisable();
                 OnEnable();
             }
-
-            if ((autoGenerateReactiveMask || autoGenerateTransparencyAndComposition) != (_prevGenReactiveMask || _prevGenTcrMasks))
-            {
-                if (autoGenerateReactiveMask || autoGenerateTransparencyAndComposition)
-                    _renderCamera.AddCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
-                else
-                    _renderCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardAlpha, _opaqueInputCommandBuffer);
-                
-                _prevGenReactiveMask = autoGenerateReactiveMask;
-                _prevGenTcrMasks = autoGenerateTransparencyAndComposition;
-            }
         }
 
-        public void Reset()
+        public void ResetHistory()
         {
-            _reset = true;
+            // Reset the temporal accumulation, for when the camera cuts to a different location or angle
+            _resetHistory = true;
         }
 
         private void LateUpdate()
@@ -278,21 +296,20 @@ namespace FidelityFX
                 _opaqueInputCommandBuffer.Blit(BuiltinRenderTextureType.CameraTarget, _colorOpaqueOnly);
             }
 
-            // Set up the parameters to auto-generate a reactive mask
             if (autoGenerateReactiveMask)
             {
-                _genReactiveDescription.ColorOpaqueOnly = _colorOpaqueOnly;
-                _genReactiveDescription.ColorPreUpscale = null;
-                _genReactiveDescription.OutReactive = null;
-                _genReactiveDescription.RenderSize = _renderSize;
-                _genReactiveDescription.Scale = generateReactiveParameters.scale;
-                _genReactiveDescription.CutoffThreshold = generateReactiveParameters.cutoffThreshold;
-                _genReactiveDescription.BinaryValue = generateReactiveParameters.binaryValue;
-                _genReactiveDescription.Flags = generateReactiveParameters.flags;
+                SetupAutoReactiveDescription();
             }
             
+            SetupDispatchDescription();
+            
+            ApplyJitter();
+        }
+
+        private void SetupDispatchDescription()
+        {
             // Set up the main FSR2 dispatch parameters
-            // The input and output textures are left blank here, as they are already being bound elsewhere in this source file
+            // The input and output textures are left blank here, as they get bound directly through SetGlobalTexture and GetTemporaryRT elsewhere in this source file
             _dispatchDescription.Color = null;
             _dispatchDescription.Depth = null;
             _dispatchDescription.MotionVectors = null;
@@ -316,8 +333,8 @@ namespace FidelityFX
             _dispatchDescription.CameraFar = _renderCamera.farClipPlane;
             _dispatchDescription.CameraFovAngleVertical = _renderCamera.fieldOfView * Mathf.Deg2Rad;
             _dispatchDescription.ViewSpaceToMetersFactor = 1.0f; // 1 unit is 1 meter in Unity
-            _dispatchDescription.Reset = _reset;
-            _reset = false;
+            _dispatchDescription.Reset = _resetHistory;
+            _resetHistory = false;
 
             // Set up the parameters for the optional experimental auto-TCR feature
             _dispatchDescription.EnableAutoReactive = autoGenerateTransparencyAndComposition;
@@ -335,7 +352,23 @@ namespace FidelityFX
                 // Swap the near and far clip plane distances as FSR2 expects this when using inverted depth
                 (_dispatchDescription.CameraNear, _dispatchDescription.CameraFar) = (_dispatchDescription.CameraFar, _dispatchDescription.CameraNear);
             }
+        }
 
+        private void SetupAutoReactiveDescription()
+        {
+            // Set up the parameters to auto-generate a reactive mask
+            _genReactiveDescription.ColorOpaqueOnly = _colorOpaqueOnly;
+            _genReactiveDescription.ColorPreUpscale = null;
+            _genReactiveDescription.OutReactive = null;
+            _genReactiveDescription.RenderSize = _renderSize;
+            _genReactiveDescription.Scale = generateReactiveParameters.scale;
+            _genReactiveDescription.CutoffThreshold = generateReactiveParameters.cutoffThreshold;
+            _genReactiveDescription.BinaryValue = generateReactiveParameters.binaryValue;
+            _genReactiveDescription.Flags = generateReactiveParameters.flags;
+        }
+
+        private void ApplyJitter()
+        {
             // Perform custom jittering of the camera's projection matrix according to FSR2's recipe
             int jitterPhaseCount = Fsr2.GetJitterPhaseCount(_renderSize.x, _displaySize.x);
             Fsr2.GetJitterOffset(out float jitterX, out float jitterY, Time.frameCount, jitterPhaseCount);
@@ -367,13 +400,13 @@ namespace FidelityFX
 
             if (autoGenerateReactiveMask)
             {
+                // The auto-reactive mask pass is executed separately from the main FSR2 passes
                 _dispatchCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, _renderSize.x, _renderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
                 _context.GenerateReactiveMask(_genReactiveDescription, _dispatchCommandBuffer);
-                
                 _dispatchDescription.Reactive = Fsr2ShaderIDs.UavAutoReactive;
             }
 
-            // We are rendering to the backbuffer, so we need a temporary render texture for FSR2 to output to
+            // The backbuffer is not set up to allow random-write access, so we need a temporary render texture for FSR2 to output to
             _dispatchCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavUpscaledOutput, _displaySize.x, _displaySize.y, 0, default, GetDefaultFormat(), default, 1, true);
 
             _context.Dispatch(_dispatchDescription, _dispatchCommandBuffer);
@@ -394,11 +427,7 @@ namespace FidelityFX
             }
             
             _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavUpscaledOutput);
-
-            if (autoGenerateReactiveMask)
-            {
-                _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavAutoReactive);
-            }
+            _dispatchCommandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavAutoReactive);
 
             Graphics.ExecuteCommandBuffer(_dispatchCommandBuffer);
             
