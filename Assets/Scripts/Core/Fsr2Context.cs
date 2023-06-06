@@ -43,7 +43,6 @@ namespace FidelityFX
         private Fsr2Pipeline _reconstructPreviousDepthPipeline;
         private Fsr2Pipeline _lockPipeline;
         private Fsr2Pipeline _accumulatePipeline;
-        private Fsr2Pipeline _accumulateSharpenPipeline;
         private Fsr2Pipeline _rcasPipeline;
         private Fsr2Pipeline _computeLuminancePyramidPipeline;
         private Fsr2Pipeline _generateReactivePipeline;
@@ -103,7 +102,6 @@ namespace FidelityFX
             _depthClipPipeline = new Fsr2DepthClipPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
             _lockPipeline = new Fsr2LockPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
             _accumulatePipeline = new Fsr2AccumulatePipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
-            _accumulateSharpenPipeline = new Fsr2AccumulateSharpenPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
             _rcasPipeline = new Fsr2RcasPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer, _rcasConstantsBuffer);
             _generateReactivePipeline = new Fsr2GenerateReactivePipeline(_contextDescription, _resources, _generateReactiveConstantsBuffer);
             _tcrAutogeneratePipeline = new Fsr2TcrAutogeneratePipeline(_contextDescription, _resources, _fsr2ConstantsBuffer, _tcrAutogenerateConstantsBuffer);
@@ -115,7 +113,6 @@ namespace FidelityFX
             DestroyPipeline(ref _generateReactivePipeline);
             DestroyPipeline(ref _computeLuminancePyramidPipeline);
             DestroyPipeline(ref _rcasPipeline);
-            DestroyPipeline(ref _accumulateSharpenPipeline);
             DestroyPipeline(ref _accumulatePipeline);
             DestroyPipeline(ref _lockPipeline);
             DestroyPipeline(ref _reconstructPreviousDepthPipeline);
@@ -152,6 +149,10 @@ namespace FidelityFX
                 commandBuffer.SetRenderTarget(_resources.LockStatus[0]);
                 commandBuffer.ClearRenderTarget(false, true, Color.clear);
                 commandBuffer.SetRenderTarget(_resources.LockStatus[1]);
+                commandBuffer.ClearRenderTarget(false, true, Color.clear);
+                
+                // Reset atomic counter to 0
+                commandBuffer.SetRenderTarget(_resources.SpdAtomicCounter);
                 commandBuffer.ClearRenderTarget(false, true, Color.clear);
             }
             
@@ -210,10 +211,6 @@ namespace FidelityFX
                 commandBuffer.ClearRenderTarget(false, true, new Color(-1f, 1e8f, 0f, 0f));
             }
             
-            // Reset atomic counter to 0
-            commandBuffer.SetRenderTarget(Fsr2ShaderIDs.UavSpdAtomicCount);
-            commandBuffer.ClearRenderTarget(false, true, Color.clear);
-            
             // Auto exposure
             SetupSpdConstants(dispatchParams, out var dispatchThreadGroupCount);
             
@@ -241,13 +238,10 @@ namespace FidelityFX
             // Create locks
             _lockPipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
 
-            bool sharpenEnabled = dispatchParams.EnableSharpening;
-            
             // Accumulate
-            var accumulatePipeline = sharpenEnabled ? _accumulateSharpenPipeline : _accumulatePipeline;
-            accumulatePipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchDstX, dispatchDstY);
+            _accumulatePipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchDstX, dispatchDstY);
 
-            if (sharpenEnabled)
+            if (dispatchParams.EnableSharpening)
             {
                 // Compute the constants
                 SetupRcasConstants(dispatchParams);

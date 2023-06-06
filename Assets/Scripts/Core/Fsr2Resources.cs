@@ -34,6 +34,7 @@ namespace FidelityFX
         public Texture2D DefaultReactive;
         public Texture2D LanczosLut;
         public Texture2D MaximumBiasLut;
+        public RenderTexture SpdAtomicCounter;
         public RenderTexture AutoExposure;
         public RenderTexture SceneLuminance;
         public RenderTexture AutoReactive;
@@ -83,6 +84,11 @@ namespace FidelityFX
             DefaultReactive = new Texture2D(1, 1, GraphicsFormat.R8_UNorm, TextureCreationFlags.None) { name = "FSR2_DefaultReactivityMask" };
             DefaultReactive.SetPixel(0, 0, Color.clear);
             DefaultReactive.Apply();
+            
+            // Resource FSR2_SpdAtomicCounter: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R32_UINT, FFX_RESOURCE_FLAGS_ALIASABLE
+            // Despite what the original FSR2 codebase says, this resource really isn't aliasable. Resetting this counter to 0 every frame breaks auto-exposure on MacOS Metal.
+            SpdAtomicCounter = new RenderTexture(1, 1, 0, GraphicsFormat.R32_UInt) { name = "FSR2_SpdAtomicCounter", enableRandomWrite = true };
+            SpdAtomicCounter.Create();
 
             // Resource FSR2_AutoExposure: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R32G32_FLOAT, FFX_RESOURCE_FLAGS_NONE
             AutoExposure = new RenderTexture(1, 1, 0, GraphicsFormat.R32G32_SFloat) { name = "FSR2_AutoExposure", enableRandomWrite = true };

@@ -66,9 +66,6 @@ namespace FidelityFX
             // Set up shared aliasable resources, i.e. temporary render textures
             // These do not need to persist between frames, but they do need to be available between passes
             
-            // Resource FSR2_SpdAtomicCounter: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R32_UINT, FFX_RESOURCE_FLAGS_ALIASABLE
-            commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavSpdAtomicCount, 1, 1, 0, default, GraphicsFormat.R32_UInt, 1, true);
-            
             // FSR2_ReconstructedPrevNearestDepth: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R32_UINT, FFX_RESOURCE_FLAGS_ALIASABLE
             commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavReconstructedPrevNearestDepth, maxRenderSize.x, maxRenderSize.y, 0, default, GraphicsFormat.R32_UInt, 1, true);
 
@@ -91,7 +88,6 @@ namespace FidelityFX
         public static void UnregisterResources(CommandBuffer commandBuffer)
         {
             // Release all of the aliasable resources used this frame
-            commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavSpdAtomicCount);
             commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavReconstructedPrevNearestDepth);
             commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavDilatedDepth);
             commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavLockInputLuma);
@@ -175,6 +171,7 @@ namespace FidelityFX
             if (dispatchParams.Color.HasValue)
                 commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, dispatchParams.Color.Value, 0, RenderTextureSubElement.Color);
 
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavSpdAtomicCount, Resources.SpdAtomicCounter);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavExposureMipLumaChange, Resources.SceneLuminance, ShadingChangeMipLevel);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavExposureMip5, Resources.SceneLuminance, 5);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavAutoExposure, Resources.AutoExposure);
@@ -277,14 +274,22 @@ namespace FidelityFX
         // Workaround: Disable FP16 path for the accumulate pass on NVIDIA due to reduced occupancy and high VRAM throughput.
         protected override bool AllowFP16 => SystemInfo.graphicsDeviceVendorID != 0x10DE;
     
+        private readonly LocalKeyword _sharpeningKeyword;
+        
         public Fsr2AccumulatePipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
             : base(contextDescription, resources, constants)
         {
             LoadComputeShader("FSR2/ffx_fsr2_accumulate_pass");
+            _sharpeningKeyword = new LocalKeyword(ComputeShader, "FFX_FSR2_OPTION_APPLY_SHARPENING");
         }
 
         public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
+            if (dispatchParams.EnableSharpening)
+                commandBuffer.EnableKeyword(ComputeShader, _sharpeningKeyword);
+            else
+                commandBuffer.DisableKeyword(ComputeShader, _sharpeningKeyword);
+            
             if ((ContextDescription.Flags & Fsr2.InitializationFlags.EnableDisplayResolutionMotionVectors) == 0)
                 commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvDilatedMotionVectors, Resources.DilatedMotionVectors[frameIndex]);
             else if (dispatchParams.MotionVectors.HasValue)
@@ -316,40 +321,6 @@ namespace FidelityFX
         }
     }
 
-    internal class Fsr2AccumulateSharpenPipeline : Fsr2AccumulatePipeline
-    {
-        private readonly ComputeShader _shaderCopy;
-        
-        public Fsr2AccumulateSharpenPipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
-            : base(contextDescription, resources, constants)
-        {
-            // Simply loading the accumulate_pass compute shader will give us the same instance as the non-sharpen pipeline
-            // So we have to clone the shader instance and set the extra keyword on the new copy
-            _shaderCopy = UnityEngine.Object.Instantiate(ComputeShader);
-            foreach (var keyword in ComputeShader.shaderKeywords)
-            {
-                _shaderCopy.EnableKeyword(keyword);
-            }
-            _shaderCopy.EnableKeyword("FFX_FSR2_OPTION_APPLY_SHARPENING");
-        }
-
-        public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
-        {
-            // Temporarily swap around the shaders so that the dispatch will bind and execute the correct one
-            ComputeShader tmp = ComputeShader;
-            ComputeShader = _shaderCopy;
-            base.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchX, dispatchY);
-            ComputeShader = tmp;
-        }
-
-        public override void Dispose()
-        {
-            // Since we instantiated this copy, we have to destroy it instead of unloading the shader resource
-            UnityEngine.Object.Destroy(_shaderCopy);
-            base.Dispose();
-        }
-    }
-    
     internal class Fsr2RcasPipeline : Fsr2Pipeline
     {
         private readonly ComputeBuffer _rcasConstants;
