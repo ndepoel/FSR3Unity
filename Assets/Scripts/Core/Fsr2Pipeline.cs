@@ -271,24 +271,37 @@ namespace FidelityFX
     
     internal class Fsr2AccumulatePipeline : Fsr2Pipeline
     {
+        private const string SharpeningKeyword = "FFX_FSR2_OPTION_APPLY_SHARPENING";
+        
         // Workaround: Disable FP16 path for the accumulate pass on NVIDIA due to reduced occupancy and high VRAM throughput.
         protected override bool AllowFP16 => SystemInfo.graphicsDeviceVendorID != 0x10DE;
     
+#if UNITY_2021_2_OR_NEWER
         private readonly LocalKeyword _sharpeningKeyword;
+#endif
         
         public Fsr2AccumulatePipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
             : base(contextDescription, resources, constants)
         {
             LoadComputeShader("FSR2/ffx_fsr2_accumulate_pass");
-            _sharpeningKeyword = new LocalKeyword(ComputeShader, "FFX_FSR2_OPTION_APPLY_SHARPENING");
+#if UNITY_2021_2_OR_NEWER
+            _sharpeningKeyword = new LocalKeyword(ComputeShader, SharpeningKeyword);
+#endif
         }
 
         public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
+#if UNITY_2021_2_OR_NEWER
             if (dispatchParams.EnableSharpening)
                 commandBuffer.EnableKeyword(ComputeShader, _sharpeningKeyword);
             else
                 commandBuffer.DisableKeyword(ComputeShader, _sharpeningKeyword);
+#else
+            if (dispatchParams.EnableSharpening)
+                commandBuffer.EnableShaderKeyword(SharpeningKeyword);
+            else
+                commandBuffer.DisableShaderKeyword(SharpeningKeyword);
+#endif
             
             if ((ContextDescription.Flags & Fsr2.InitializationFlags.EnableDisplayResolutionMotionVectors) == 0)
                 commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvDilatedMotionVectors, Resources.DilatedMotionVectors[frameIndex]);
