@@ -183,7 +183,7 @@ namespace FidelityFX
             
             if (dispatchParams.Reactive == null) dispatchParams.Reactive = _resources.DefaultReactive;
             if (dispatchParams.TransparencyAndComposition == null) dispatchParams.TransparencyAndComposition = _resources.DefaultReactive;
-            Fsr2Pipeline.RegisterResources(commandBuffer, _contextDescription, dispatchParams);
+            Fsr2Resources.CreateAliasableResources(commandBuffer, _contextDescription, dispatchParams);
             
             SetupConstants(dispatchParams, resetAccumulation);
             
@@ -256,7 +256,7 @@ namespace FidelityFX
 
             _resourceFrameIndex = (_resourceFrameIndex + 1) % MaxQueuedFrames;
 
-            Fsr2Pipeline.UnregisterResources(commandBuffer);
+            Fsr2Resources.DestroyAliasableResources(commandBuffer);
         }
 
         public void GenerateReactiveMask(Fsr2.GenerateReactiveDescription dispatchParams)

@@ -21,6 +21,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 namespace FidelityFX
 {
@@ -129,6 +130,43 @@ namespace FidelityFX
 
             // Resources FSR2_PrevPostAlpha0/1: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R11G11B10_FLOAT, FFX_RESOURCE_FLAGS_NONE
             CreateDoubleBufferedResource(PrevPostAlpha, "FSR2_PrevPostAlpha", contextDescription.MaxRenderSize, GraphicsFormat.B10G11R11_UFloatPack32);
+        }
+        
+        // Set up shared aliasable resources, i.e. temporary render textures
+        // These do not need to persist between frames, but they do need to be available between passes
+        public static void CreateAliasableResources(CommandBuffer commandBuffer, Fsr2.ContextDescription contextDescription, Fsr2.DispatchDescription dispatchParams)
+        {
+            Vector2Int displaySize = contextDescription.DisplaySize;
+            Vector2Int maxRenderSize = contextDescription.MaxRenderSize;
+
+            // FSR2_ReconstructedPrevNearestDepth: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R32_UINT, FFX_RESOURCE_FLAGS_ALIASABLE
+            commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavReconstructedPrevNearestDepth, maxRenderSize.x, maxRenderSize.y, 0, default, GraphicsFormat.R32_UInt, 1, true);
+
+            // FSR2_DilatedDepth: FFX_RESOURCE_USAGE_RENDERTARGET | FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R32_FLOAT, FFX_RESOURCE_FLAGS_ALIASABLE
+            commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavDilatedDepth, maxRenderSize.x, maxRenderSize.y, 0, default, GraphicsFormat.R32_SFloat, 1, true);
+
+            // FSR2_LockInputLuma: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R16_FLOAT, FFX_RESOURCE_FLAGS_ALIASABLE
+            commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavLockInputLuma, maxRenderSize.x, maxRenderSize.y, 0, default, GraphicsFormat.R16_SFloat, 1, true);
+            
+            // FSR2_DilatedReactiveMasks: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R8G8_UNORM, FFX_RESOURCE_FLAGS_ALIASABLE
+            commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavDilatedReactiveMasks, maxRenderSize.x, maxRenderSize.y, 0, default, GraphicsFormat.R8G8_UNorm, 1, true);
+            
+            // FSR2_PreparedInputColor: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R16G16B16A16_FLOAT, FFX_RESOURCE_FLAGS_ALIASABLE
+            commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavPreparedInputColor, maxRenderSize.x, maxRenderSize.y, 0, default, GraphicsFormat.R16G16B16A16_SFloat, 1, true);
+            
+            // FSR2_NewLocks: FFX_RESOURCE_USAGE_UAV, FFX_SURFACE_FORMAT_R8_UNORM, FFX_RESOURCE_FLAGS_ALIASABLE
+            commandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavNewLocks, displaySize.x, displaySize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
+        }
+
+        public static void DestroyAliasableResources(CommandBuffer commandBuffer)
+        {
+            // Release all of the aliasable resources used this frame
+            commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavReconstructedPrevNearestDepth);
+            commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavDilatedDepth);
+            commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavLockInputLuma);
+            commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavDilatedReactiveMasks);
+            commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavPreparedInputColor);
+            commandBuffer.ReleaseTemporaryRT(Fsr2ShaderIDs.UavNewLocks);
         }
 
         private static void CreateDoubleBufferedResource(RenderTexture[] resource, string name, Vector2Int size, GraphicsFormat format)
