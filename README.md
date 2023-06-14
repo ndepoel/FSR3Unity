@@ -14,6 +14,8 @@ Focus of this project lies initially on making FSR2 work with the traditional Un
 
 - [Requirements](#requirements)
 - [Integration](#integration)
+  - [Built-in Render Pipeline](#built-in-render-pipeline)
+  - [Post-Processing Stack V2](#post-processing-stack-v2)
   - [Callbacks](#callbacks)
     - [Resource management](#resource-management)
     - [Mipmap biasing](#mipmap-biasing)
@@ -63,6 +65,8 @@ Note that OpenGL on MacOS does not support compute shaders, so it will never be 
 
 Integration generally follows the same guidelines as the [FSR2 documentation on Github](https://github.com/GPUOpen-Effects/FidelityFX-FSR2#integration-guidelines), with a few specifics for the Unity implementation.
 
+### Built-in Render Pipeline
+
 To apply FSR2 to a camera, simply add the `Fsr2ImageEffect` script to your camera game object. It should be placed at the bottom of the components list, to ensure that it's the last image effect in the chain.
 
 ![Simple Camera Setup](images/camera-simple.png)
@@ -74,6 +78,18 @@ If you have any other post-processing effects on your camera that make use of th
 ![PPV2 Camera Setup](images/camera-ppv2.png)
 
 Also make sure that any other anti-aliasing methods (MSAA, FXAA, SMAA, TAA) are disabled when enabling FSR2.
+
+### Post-Processing Stack V2
+
+FSR2 for Unity is also available as a full integration into the Post-Processing Stack V2 (PPV2) from Unity. This integration gets closer to the ideal placement in the render pipeline [as recommended by the FSR2 documentation](https://github.com/GPUOpen-Effects/FidelityFX-FSR2#placement-in-the-frame). The post-processing effects from PPV2 are split into groups before and after upscaling, meaning that effects that should be applied at full resolution (e.g. film grain, bloom, depth of field, motion blur) are indeed applied on the full resolution upscaled image.
+
+Post-Processing Stack V2 with FSR2 is intended to be used as a drop-in replacement package for the official PPV2 package from Unity. It can be [downloaded from the Releases page](https://github.com/ndepoel/FSR2Unity/releases/latest) and should be extracted into the `Packages` directory of your project. From there it will automatically get picked up by Unity when you refresh your project.
+
+When the package is installed correctly, FSR2 should appear as an Anti-aliasing Mode on the Post-process Layer component:
+
+![FSR2 Anti-aliasing Mode](images/ppv2layer.png)
+
+From here you can configure the usual FSR2 settings, including quality mode, sharpness, exposure and reactive mask.
 
 ### Callbacks
 
