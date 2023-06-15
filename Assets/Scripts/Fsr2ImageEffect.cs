@@ -103,7 +103,7 @@ namespace FidelityFX
         public RenderTexture outputMotionVectors;
 
         private Fsr2Context _context;
-        private Vector2Int _renderSize;
+        private Vector2Int _maxRenderSize;
         private Vector2Int _displaySize;
         private float _appliedBiasOffset;
         private bool _resetHistory;
@@ -139,8 +139,8 @@ namespace FidelityFX
             
             // Determine the desired rendering and display resolutions
             _displaySize = GetDisplaySize();
-            Fsr2.GetRenderResolutionFromQualityMode(out var renderWidth, out var renderHeight, _displaySize.x, _displaySize.y, qualityMode);
-            _renderSize = new Vector2Int(renderWidth, renderHeight);
+            Fsr2.GetRenderResolutionFromQualityMode(out var maxRenderWidth, out var maxRenderHeight, _displaySize.x, _displaySize.y, qualityMode);
+            _maxRenderSize = new Vector2Int(maxRenderWidth, maxRenderHeight);
 
             if (!SystemInfo.supportsComputeShaders)
             {
@@ -149,9 +149,9 @@ namespace FidelityFX
                 return;
             }
 
-            if (_renderSize.x == 0 || _renderSize.y == 0)
+            if (_maxRenderSize.x == 0 || _maxRenderSize.y == 0)
             {
-                Debug.LogError($"FSR2 render size is invalid: {_renderSize.x}x{_renderSize.y}. Please check your screen resolution and camera viewport parameters.");
+                Debug.LogError($"FSR2 render size is invalid: {_maxRenderSize.x}x{_maxRenderSize.y}. Please check your screen resolution and camera viewport parameters.");
                 enabled = false;
                 return;
             }
@@ -186,8 +186,9 @@ namespace FidelityFX
             if (_renderCamera.allowHDR) flags |= Fsr2.InitializationFlags.EnableHighDynamicRange;
             if (enableFP16) flags |= Fsr2.InitializationFlags.EnableFP16Usage;
             if (enableAutoExposure) flags |= Fsr2.InitializationFlags.EnableAutoExposure;
+            if (UsingDynamicResolution()) flags |= Fsr2.InitializationFlags.EnableDynamicResolution;
 
-            _context = Fsr2.CreateContext(_displaySize, _renderSize, Callbacks, flags);
+            _context = Fsr2.CreateContext(_displaySize, _maxRenderSize, Callbacks, flags);
 
             _prevDisplaySize = _displaySize;
             _prevQualityMode = qualityMode;
@@ -233,7 +234,7 @@ namespace FidelityFX
         private void ApplyMipmapBias()
         {
             // Apply a mipmap bias so that textures retain their sharpness
-            float biasOffset = Fsr2.GetMipmapBiasOffset(_renderSize.x, _displaySize.x);
+            float biasOffset = Fsr2.GetMipmapBiasOffset(_maxRenderSize.x, _displaySize.x);
             if (!float.IsNaN(biasOffset) && !float.IsInfinity(biasOffset))
             {
                 Callbacks.ApplyMipmapBias(biasOffset);
@@ -285,14 +286,15 @@ namespace FidelityFX
             {
                 // Render to a smaller portion of the screen by manipulating the camera's viewport rect
                 _renderCamera.aspect = (_displaySize.x * _originalRect.width) / (_displaySize.y * _originalRect.height);
-                _renderCamera.rect = new Rect(0, 0, _originalRect.width * _renderSize.x / _renderCamera.pixelWidth, _originalRect.height * _renderSize.y / _renderCamera.pixelHeight);
+                _renderCamera.rect = new Rect(0, 0, _originalRect.width * _maxRenderSize.x / _renderCamera.pixelWidth, _originalRect.height * _maxRenderSize.y / _renderCamera.pixelHeight);
             }
             
             // Set up the opaque-only command buffer to make a copy of the camera color buffer right before transparent drawing starts 
             _opaqueInputCommandBuffer.Clear();
             if (autoGenerateReactiveMask || autoGenerateTransparencyAndComposition)
             {
-                _colorOpaqueOnly = RenderTexture.GetTemporary(_renderSize.x, _renderSize.y, 0, GetDefaultFormat());
+                var scaledRenderSize = GetScaledRenderSize();
+                _colorOpaqueOnly = RenderTexture.GetTemporary(scaledRenderSize.x, scaledRenderSize.y, 0, GetDefaultFormat());
                 _opaqueInputCommandBuffer.Blit(BuiltinRenderTextureType.CameraTarget, _colorOpaqueOnly);
             }
 
@@ -320,14 +322,16 @@ namespace FidelityFX
             if (!enableAutoExposure && exposure != null) _dispatchDescription.Exposure = exposure;
             if (reactiveMask != null) _dispatchDescription.Reactive = reactiveMask;
             if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = transparencyAndCompositionMask;
+
+            var scaledRenderSize = GetScaledRenderSize();
             
             _dispatchDescription.Output = null;
             _dispatchDescription.PreExposure = preExposure;
             _dispatchDescription.EnableSharpening = performSharpenPass;
             _dispatchDescription.Sharpness = sharpness;
-            _dispatchDescription.MotionVectorScale.x = -_renderSize.x;
-            _dispatchDescription.MotionVectorScale.y = -_renderSize.y;
-            _dispatchDescription.RenderSize = _renderSize;
+            _dispatchDescription.MotionVectorScale.x = -scaledRenderSize.x;
+            _dispatchDescription.MotionVectorScale.y = -scaledRenderSize.y;
+            _dispatchDescription.RenderSize = scaledRenderSize;
             _dispatchDescription.FrameTimeDelta = Time.unscaledDeltaTime;
             _dispatchDescription.CameraNear = _renderCamera.nearClipPlane;
             _dispatchDescription.CameraFar = _renderCamera.farClipPlane;
@@ -360,7 +364,7 @@ namespace FidelityFX
             _genReactiveDescription.ColorOpaqueOnly = _colorOpaqueOnly;
             _genReactiveDescription.ColorPreUpscale = null;
             _genReactiveDescription.OutReactive = null;
-            _genReactiveDescription.RenderSize = _renderSize;
+            _genReactiveDescription.RenderSize = GetScaledRenderSize();
             _genReactiveDescription.Scale = generateReactiveParameters.scale;
             _genReactiveDescription.CutoffThreshold = generateReactiveParameters.cutoffThreshold;
             _genReactiveDescription.BinaryValue = generateReactiveParameters.binaryValue;
@@ -369,14 +373,16 @@ namespace FidelityFX
 
         private void ApplyJitter()
         {
+            var scaledRenderSize = GetScaledRenderSize();
+            
             // Perform custom jittering of the camera's projection matrix according to FSR2's recipe
-            int jitterPhaseCount = Fsr2.GetJitterPhaseCount(_renderSize.x, _displaySize.x);
+            int jitterPhaseCount = Fsr2.GetJitterPhaseCount(scaledRenderSize.x, _displaySize.x);
             Fsr2.GetJitterOffset(out float jitterX, out float jitterY, Time.frameCount, jitterPhaseCount);
 
             _dispatchDescription.JitterOffset = new Vector2(jitterX, jitterY);
 
-            jitterX = 2.0f * jitterX / _renderSize.x;
-            jitterY = 2.0f * jitterY / _renderSize.y;
+            jitterX = 2.0f * jitterX / scaledRenderSize.x;
+            jitterY = 2.0f * jitterY / scaledRenderSize.y;
 
             var jitterTranslationMatrix = Matrix4x4.Translate(new Vector3(jitterX, jitterY, 0));
             _renderCamera.nonJitteredProjectionMatrix = _renderCamera.projectionMatrix;
@@ -401,7 +407,8 @@ namespace FidelityFX
             if (autoGenerateReactiveMask)
             {
                 // The auto-reactive mask pass is executed separately from the main FSR2 passes
-                _dispatchCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, _renderSize.x, _renderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
+                var scaledRenderSize = GetScaledRenderSize();
+                _dispatchCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, scaledRenderSize.x, scaledRenderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
                 _context.GenerateReactiveMask(_genReactiveDescription, _dispatchCommandBuffer);
                 _dispatchDescription.Reactive = Fsr2ShaderIDs.UavAutoReactive;
             }
@@ -455,6 +462,19 @@ namespace FidelityFX
                 return new Vector2Int(_originalRenderTarget.width, _originalRenderTarget.height);
             
             return new Vector2Int(_renderCamera.pixelWidth, _renderCamera.pixelHeight);
+        }
+
+        private bool UsingDynamicResolution()
+        {
+            return _renderCamera.allowDynamicResolution || (_originalRenderTarget != null && _originalRenderTarget.useDynamicScale);
+        }
+
+        private Vector2Int GetScaledRenderSize()
+        {
+            if (UsingDynamicResolution())
+                return new Vector2Int(Mathf.CeilToInt(_maxRenderSize.x * ScalableBufferManager.widthScaleFactor), Mathf.CeilToInt(_maxRenderSize.y * ScalableBufferManager.heightScaleFactor));
+            
+            return _maxRenderSize;
         }
     }
 }
