@@ -42,6 +42,8 @@ namespace FidelityFX
         /// You may also want to store the bias offset value and apply it to any assets that are loaded in on demand.
         /// </summary>
         void ApplyMipmapBias(float biasOffset);
+
+        void UndoMipmapBias(float biasOffset);
     }
     
     /// <summary>
@@ -76,10 +78,23 @@ namespace FidelityFX
         {
             CurrentBiasOffset += biasOffset;
             
+            if (Mathf.Approximately(CurrentBiasOffset, 0f))
+            {
+                CurrentBiasOffset = 0f;
+            }
+
             foreach (var texture in Resources.FindObjectsOfTypeAll<Texture2D>())
             {
+                if (texture.mipmapCount <= 1)
+                    continue;
+                
                 texture.mipMapBias += biasOffset;
             }
+        }
+
+        public virtual void UndoMipmapBias(float biasOffset)
+        {
+            ApplyMipmapBias(-biasOffset);
         }
     }
 }

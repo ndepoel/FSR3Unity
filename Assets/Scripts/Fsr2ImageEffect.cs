@@ -249,9 +249,9 @@ namespace FidelityFX
         private void UndoMipmapBias()
         {
             // Undo the current mipmap bias offset
-            if (!float.IsNaN(_appliedBiasOffset) && !float.IsInfinity(_appliedBiasOffset) && _appliedBiasOffset != 0f)
+            if (_appliedBiasOffset != 0f && !float.IsNaN(_appliedBiasOffset) && !float.IsInfinity(_appliedBiasOffset))
             {
-                Callbacks.ApplyMipmapBias(-_appliedBiasOffset);
+                Callbacks.UndoMipmapBias(_appliedBiasOffset);
                 _appliedBiasOffset = 0f;
             }
         }
