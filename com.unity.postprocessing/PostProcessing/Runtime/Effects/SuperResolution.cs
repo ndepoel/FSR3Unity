@@ -100,12 +100,12 @@ namespace UnityEngine.Rendering.PostProcessing
         }
         
         public Vector2 jitter { get; private set; }
-        public Vector2Int renderSize => _renderSize;
+        public Vector2Int renderSize => _maxRenderSize;
         public Vector2Int displaySize => _displaySize;
         public RenderTargetIdentifier colorOpaqueOnly { get; set; }
 
         private Fsr2Context _fsrContext;
-        private Vector2Int _renderSize;
+        private Vector2Int _maxRenderSize;
         private Vector2Int _displaySize;
         private bool _resetHistory;
 
@@ -153,12 +153,12 @@ namespace UnityEngine.Rendering.PostProcessing
             
             // Determine the desired rendering and display resolutions
             _displaySize = new Vector2Int(camera.pixelWidth, camera.pixelHeight);
-            Fsr2.GetRenderResolutionFromQualityMode(out int renderWidth, out int renderHeight, _displaySize.x, _displaySize.y, qualityMode);
-            _renderSize = new Vector2Int(renderWidth, renderHeight);
+            Fsr2.GetRenderResolutionFromQualityMode(out int maxRenderWidth, out int maxRenderHeight, _displaySize.x, _displaySize.y, qualityMode);
+            _maxRenderSize = new Vector2Int(maxRenderWidth, maxRenderHeight);
             
             // Render to a smaller portion of the screen by manipulating the camera's viewport rect
             camera.aspect = (_displaySize.x * _originalRect.width) / (_displaySize.y * _originalRect.height);
-            camera.rect = new Rect(0, 0, _originalRect.width * _renderSize.x / _displaySize.x, _originalRect.height * _renderSize.y / _displaySize.y);
+            camera.rect = new Rect(0, 0, _originalRect.width * _maxRenderSize.x / _displaySize.x, _originalRect.height * _maxRenderSize.y / _displaySize.y);
         }
 
         public void ResetCameraViewport(PostProcessRenderContext context)
@@ -188,8 +188,9 @@ namespace UnityEngine.Rendering.PostProcessing
             if (autoGenerateReactiveMask)
             {
                 SetupAutoReactiveDescription(context);
-                
-                cmd.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, _renderSize.x, _renderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
+
+                var scaledRenderSize = _genReactiveDescription.RenderSize;
+                cmd.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, scaledRenderSize.x, scaledRenderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
                 _fsrContext.GenerateReactiveMask(_genReactiveDescription, cmd);
                 _dispatchDescription.Reactive = Fsr2ShaderIDs.UavAutoReactive;
             }
@@ -212,12 +213,13 @@ namespace UnityEngine.Rendering.PostProcessing
             if (context.camera.allowHDR) flags |= Fsr2.InitializationFlags.EnableHighDynamicRange;
             if (enableFP16) flags |= Fsr2.InitializationFlags.EnableFP16Usage;
             if (exposureSource == ExposureSource.Auto) flags |= Fsr2.InitializationFlags.EnableAutoExposure;
+            if (RuntimeUtilities.IsDynamicResolutionEnabled(context.camera)) flags |= Fsr2.InitializationFlags.EnableDynamicResolution;
 
             _callbacks = callbacksFactory(context);
-            _fsrContext = Fsr2.CreateContext(_displaySize, _renderSize, _callbacks, flags);
+            _fsrContext = Fsr2.CreateContext(_displaySize, _maxRenderSize, _callbacks, flags);
 
             // Apply a mipmap bias so that textures retain their sharpness
-            float biasOffset = Fsr2.GetMipmapBiasOffset(_renderSize.x, _displaySize.x);
+            float biasOffset = Fsr2.GetMipmapBiasOffset(_maxRenderSize.x, _displaySize.x);
             if (!float.IsNaN(biasOffset) && !float.IsInfinity(biasOffset))
             {
                 _callbacks.ApplyMipmapBias(biasOffset);
@@ -238,23 +240,25 @@ namespace UnityEngine.Rendering.PostProcessing
             }
 
             // Undo the current mipmap bias offset
-            if (!float.IsNaN(_appliedBiasOffset) && !float.IsInfinity(_appliedBiasOffset) && _appliedBiasOffset != 0f)
+            if (_appliedBiasOffset != 0f && !float.IsNaN(_appliedBiasOffset) && !float.IsInfinity(_appliedBiasOffset))
             {
-                _callbacks.ApplyMipmapBias(-_appliedBiasOffset);
+                _callbacks.UndoMipmapBias(_appliedBiasOffset);
                 _appliedBiasOffset = 0f;
             }
         }
 
         private void ApplyJitter(Camera camera)
         {
+            var scaledRenderSize = GetScaledRenderSize(camera);
+            
             // Perform custom jittering of the camera's projection matrix according to FSR2's recipe
-            int jitterPhaseCount = Fsr2.GetJitterPhaseCount(_renderSize.x, _displaySize.x);
+            int jitterPhaseCount = Fsr2.GetJitterPhaseCount(scaledRenderSize.x, _displaySize.x);
             Fsr2.GetJitterOffset(out float jitterX, out float jitterY, Time.frameCount, jitterPhaseCount);
             
             _dispatchDescription.JitterOffset = new Vector2(jitterX, jitterY);
 
-            jitterX = 2.0f * jitterX / _renderSize.x;
-            jitterY = 2.0f * jitterY / _renderSize.y;
+            jitterX = 2.0f * jitterX / scaledRenderSize.x;
+            jitterY = 2.0f * jitterY / scaledRenderSize.y;
 
             var jitterTranslationMatrix = Matrix4x4.Translate(new Vector3(jitterX, jitterY, 0));
             camera.nonJitteredProjectionMatrix = camera.projectionMatrix;
@@ -281,15 +285,17 @@ namespace UnityEngine.Rendering.PostProcessing
             if (exposureSource == ExposureSource.Unity) _dispatchDescription.Exposure = context.autoExposureTexture;
             if (reactiveMask != null) _dispatchDescription.Reactive = reactiveMask;
             if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = transparencyAndCompositionMask;
+
+            var scaledRenderSize = GetScaledRenderSize(context.camera);
             
             _dispatchDescription.Output = context.destination;
             _dispatchDescription.PreExposure = preExposure;
             _dispatchDescription.EnableSharpening = performSharpenPass;
             _dispatchDescription.Sharpness = sharpness;
-            _dispatchDescription.MotionVectorScale.x = -_renderSize.x;
-            _dispatchDescription.MotionVectorScale.y = -_renderSize.y;
-            _dispatchDescription.RenderSize = _renderSize;
-            _dispatchDescription.InputResourceSize = _renderSize;   // TODO: this may need to be maxRenderSize to support dynamic resolution
+            _dispatchDescription.MotionVectorScale.x = -scaledRenderSize.x;
+            _dispatchDescription.MotionVectorScale.y = -scaledRenderSize.y;
+            _dispatchDescription.RenderSize = scaledRenderSize;
+            _dispatchDescription.InputResourceSize = scaledRenderSize;
             _dispatchDescription.FrameTimeDelta = Time.unscaledDeltaTime;
             _dispatchDescription.CameraNear = camera.nearClipPlane;
             _dispatchDescription.CameraFar = camera.farClipPlane;
@@ -321,11 +327,19 @@ namespace UnityEngine.Rendering.PostProcessing
             _genReactiveDescription.ColorOpaqueOnly = colorOpaqueOnly;
             _genReactiveDescription.ColorPreUpscale = null;
             _genReactiveDescription.OutReactive = null;
-            _genReactiveDescription.RenderSize = _renderSize;
+            _genReactiveDescription.RenderSize = GetScaledRenderSize(context.camera);
             _genReactiveDescription.Scale = generateReactiveParameters.scale;
             _genReactiveDescription.CutoffThreshold = generateReactiveParameters.cutoffThreshold;
             _genReactiveDescription.BinaryValue = generateReactiveParameters.binaryValue;
             _genReactiveDescription.Flags = generateReactiveParameters.flags;
+        }
+
+        private Vector2Int GetScaledRenderSize(Camera camera)
+        {
+            if (!RuntimeUtilities.IsDynamicResolutionEnabled(camera))
+                return _maxRenderSize;
+
+            return new Vector2Int(Mathf.CeilToInt(_maxRenderSize.x * ScalableBufferManager.widthScaleFactor), Mathf.CeilToInt(_maxRenderSize.y * ScalableBufferManager.heightScaleFactor));
         }
 
         private class Callbacks : Fsr2CallbacksBase

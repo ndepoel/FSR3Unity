@@ -372,10 +372,10 @@ namespace UnityEngine.Rendering.PostProcessing
         /// <param name="filter">The texture filtering mode</param>
         /// <param name="widthOverride">Override the display width; use <c>0</c> to disable the override</param>
         /// <param name="heightOverride">Override the display height; use <c>0</c> to disable the override</param>
-        /// <param name="enableRandomWrite">Enable random access write into this render texture</param>
+        /// <param name="isUpscaleOutput">Enable random access write into this render texture and disable dynamic scaling</param>
         public void GetScreenSpaceTemporaryRT(CommandBuffer cmd, int nameID,
             int depthBufferBits = 0, RenderTextureFormat colorFormat = RenderTextureFormat.Default, RenderTextureReadWrite readWrite = RenderTextureReadWrite.Default,
-            FilterMode filter = FilterMode.Bilinear, int widthOverride = 0, int heightOverride = 0, bool enableRandomWrite = false)
+            FilterMode filter = FilterMode.Bilinear, int widthOverride = 0, int heightOverride = 0, bool isUpscaleOutput = false)
         {
             var desc = GetDescriptor(depthBufferBits, colorFormat, readWrite);
             if (widthOverride > 0)
@@ -387,8 +387,11 @@ namespace UnityEngine.Rendering.PostProcessing
             if (stereoActive && desc.dimension == Rendering.TextureDimension.Tex2DArray)
                 desc.dimension = Rendering.TextureDimension.Tex2D;
 
-            if (enableRandomWrite)
+            if (isUpscaleOutput)
+            {
                 desc.enableRandomWrite = true;
+                desc.useDynamicScale = false;
+            }
 
 #if UNITY_2019_1_OR_NEWER
             cmd.GetTemporaryRT(nameID, desc, filter);

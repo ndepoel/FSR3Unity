@@ -1010,6 +1010,8 @@ namespace UnityEngine.Rendering.PostProcessing
                 && layer.temporalAntialiasing.IsSupported();
         }
 #if UNITY_2017_3_OR_NEWER
+        public static bool AllowDynamicResolution = true;
+        
         /// <summary>
         /// Checks if dynamic resolution is enabled on a given camera.
         /// </summary>
@@ -1017,7 +1019,7 @@ namespace UnityEngine.Rendering.PostProcessing
         /// <returns><c>true</c> if dynamic resolution is enabled, <c>false</c> otherwise</returns>
         public static bool IsDynamicResolutionEnabled(Camera camera)
         {
-            return camera.allowDynamicResolution || (camera.targetTexture != null && camera.targetTexture.useDynamicScale);
+            return AllowDynamicResolution && (camera.allowDynamicResolution || (camera.targetTexture != null && camera.targetTexture.useDynamicScale));
         }
 #endif
         /// <summary>

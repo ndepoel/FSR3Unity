@@ -290,6 +290,11 @@ namespace UnityEngine.Rendering.PostProcessing
                 RenderTexture.ReleaseTemporary(m_opaqueOnly);
                 m_opaqueOnly = null;
             }
+
+            if (m_CurrentContext.IsSuperResolutionActive())
+            {
+                RuntimeUtilities.AllowDynamicResolution = true;
+            }
             
             if (!finalBlitToCameraTarget && m_CurrentContext.IsSuperResolutionActive())
             {
@@ -630,6 +635,12 @@ namespace UnityEngine.Rendering.PostProcessing
             {
                 // Ensure all of FSR2's resources are released when it's not in use
                 superResolution.Release();
+                
+                if (m_originalTargetTexture != null)
+                {
+                    m_Camera.targetTexture = m_originalTargetTexture;
+                    m_originalTargetTexture = null;
+                }
             }
 
             context.command = m_LegacyCmdBufferOpaque;
@@ -1186,12 +1197,15 @@ namespace UnityEngine.Rendering.PostProcessing
                     
                     var fsrTarget = m_TargetPool.Get();
                     var finalDestination = context.destination;
-                    context.GetScreenSpaceTemporaryRT(cmd, fsrTarget, 0, context.sourceFormat, enableRandomWrite: true);
+                    context.GetScreenSpaceTemporaryRT(cmd, fsrTarget, 0, context.sourceFormat, isUpscaleOutput: true);
                     context.destination = fsrTarget;
                     superResolution.colorOpaqueOnly = m_opaqueOnly;
                     superResolution.Render(context);
                     context.source = fsrTarget;
                     context.destination = finalDestination;
+                    
+                    // Disable dynamic scaling on render targets, so all subsequent effects will be applied on the full resolution upscaled image 
+                    RuntimeUtilities.AllowDynamicResolution = false;
                     
                     if (lastTarget > -1)
                         cmd.ReleaseTemporaryRT(lastTarget);
