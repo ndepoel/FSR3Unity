@@ -22,6 +22,7 @@ Focus of this project lies initially on making FSR2 work with the traditional Un
   - [Motion vectors](#motion-vectors)
   - [Reactive mask](#reactive-mask)
   - [Exposure](#exposure)
+  - [Dynamic resolution](#dynamic-resolution)
 - [Known issues](#known-issues)
 - [Details on implementation](#details-on-implementation)
   - [Supporting unsupported platforms](#supporting-unsupported-platforms)
@@ -158,6 +159,14 @@ Imagine walking from a bright outdoors area into a dark tunnel and standing stil
 By providing FSR2 with the image's current exposure value, it can derive each pixel's original unadjusted color value and will be able to tell that the pixels are not actually changing. This results in a sharper and more stable image, without any temporal fizzling artifacts.
 
 The exposure value can be supplied to the `Fsr2ImageEffect` script through its Exposure texture parameter. PPV2's Auto Exposure effect outputs a compatible texture, however this value is kept internal by PPV2 so it'll require some trickery to plug this into FSR2. It's also possible to allow FSR2 to compute an exposure value by itself by enabling the Auto Exposure feature, however results may vary and this feature has some issues on a couple of platforms.
+
+### Dynamic resolution
+
+FSR2 for Unity supports dynamic resolution through Unity's `ScalableBufferManager` class. This is distinct from FSR2's own internal upscaling mechanism, which works by manipulating the camera's viewport size (see [Built-in Render Pipeline upscaling](#built-in-render-pipeline-upscaling)). The selected FSR2 quality mode determines the maximum render size that will be used by FSR2's upscaling; the dynamic resolution from `ScalableBufferManager` can be added on top of that to further reduce the actual render size on a frame-by-frame basis.
+
+The use of `ScalableBufferManager` is not mandatory in any way, as this form of dynamic resolution is not supported by all graphics APIs in Unity. All that FSR2 does with it is: if `ScalableBufferManager` is supported, and the camera or render target has dynamic scaling enabled, then FSR2 will respect the width and height scale factors set by the application to reduce its internal render size. It is up to the application to control the dynamic resolution scale, for example by measuring GPU times using `FrameTimingManager` and adjusting the resolution according to a target framerate.
+
+Dynamic resolution works really well in combination with FSR2. Any run-time change in resolution is barely noticeable due to FSR2's robust upscaling and image reconstruction, with only a small drop in texture sharpness that can be observed. It is recommended not to scale dynamic resolution below 50%, as the image reconstruction has trouble drawing a stable image below that figure. Typically scaling down to 70% provides the best balance between performance gain and maintaining image quality.
 
 ## Known issues
 
