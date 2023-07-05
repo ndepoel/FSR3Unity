@@ -105,7 +105,6 @@ namespace FidelityFX
         private Fsr2Context _context;
         private Vector2Int _maxRenderSize;
         private Vector2Int _displaySize;
-        private float _appliedBiasOffset;
         private bool _resetHistory;
         
         private readonly Fsr2.DispatchDescription _dispatchDescription = new Fsr2.DispatchDescription();
@@ -238,22 +237,13 @@ namespace FidelityFX
             if (!float.IsNaN(biasOffset) && !float.IsInfinity(biasOffset))
             {
                 Callbacks.ApplyMipmapBias(biasOffset);
-                _appliedBiasOffset = biasOffset;
-            }
-            else
-            {
-                _appliedBiasOffset = 0f;
             }
         }
 
         private void UndoMipmapBias()
         {
             // Undo the current mipmap bias offset
-            if (_appliedBiasOffset != 0f && !float.IsNaN(_appliedBiasOffset) && !float.IsInfinity(_appliedBiasOffset))
-            {
-                Callbacks.UndoMipmapBias(_appliedBiasOffset);
-                _appliedBiasOffset = 0f;
-            }
+            Callbacks.UndoMipmapBias();
         }
 
         private void Update()

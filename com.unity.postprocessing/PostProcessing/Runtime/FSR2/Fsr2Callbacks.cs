@@ -43,7 +43,7 @@ namespace FidelityFX
         /// </summary>
         void ApplyMipmapBias(float biasOffset);
 
-        void UndoMipmapBias(float biasOffset);
+        void UndoMipmapBias();
     }
     
     /// <summary>
@@ -76,6 +76,9 @@ namespace FidelityFX
 
         public virtual void ApplyMipmapBias(float biasOffset)
         {
+            if (float.IsNaN(biasOffset) || float.IsInfinity(biasOffset))
+                return;
+            
             CurrentBiasOffset += biasOffset;
             
             if (Mathf.Approximately(CurrentBiasOffset, 0f))
@@ -92,9 +95,12 @@ namespace FidelityFX
             }
         }
 
-        public virtual void UndoMipmapBias(float biasOffset)
+        public virtual void UndoMipmapBias()
         {
-            ApplyMipmapBias(-biasOffset);
+            if (CurrentBiasOffset == 0f)
+                return;
+
+            ApplyMipmapBias(-CurrentBiasOffset);
         }
     }
 }

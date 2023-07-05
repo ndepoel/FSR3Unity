@@ -110,7 +110,6 @@ namespace UnityEngine.Rendering.PostProcessing
         private bool _resetHistory;
 
         private IFsr2Callbacks _callbacks;
-        private float _appliedBiasOffset;
 
         private readonly Fsr2.DispatchDescription _dispatchDescription = new Fsr2.DispatchDescription();
         private readonly Fsr2.GenerateReactiveDescription _genReactiveDescription = new Fsr2.GenerateReactiveDescription();
@@ -223,11 +222,6 @@ namespace UnityEngine.Rendering.PostProcessing
             if (!float.IsNaN(biasOffset) && !float.IsInfinity(biasOffset))
             {
                 _callbacks.ApplyMipmapBias(biasOffset);
-                _appliedBiasOffset = biasOffset;
-            }
-            else
-            {
-                _appliedBiasOffset = 0f;
             }
         }
         
@@ -239,11 +233,11 @@ namespace UnityEngine.Rendering.PostProcessing
                 _fsrContext = null;
             }
 
-            // Undo the current mipmap bias offset
-            if (_appliedBiasOffset != 0f && !float.IsNaN(_appliedBiasOffset) && !float.IsInfinity(_appliedBiasOffset))
+            if (_callbacks != null)
             {
-                _callbacks.UndoMipmapBias(_appliedBiasOffset);
-                _appliedBiasOffset = 0f;
+                // Undo the current mipmap bias offset
+                _callbacks.UndoMipmapBias();
+                _callbacks = null;
             }
         }
 
