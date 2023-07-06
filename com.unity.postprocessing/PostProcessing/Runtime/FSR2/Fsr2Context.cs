@@ -150,10 +150,6 @@ namespace FidelityFX
                 commandBuffer.ClearRenderTarget(false, true, Color.clear);
                 commandBuffer.SetRenderTarget(_resources.LockStatus[1]);
                 commandBuffer.ClearRenderTarget(false, true, Color.clear);
-                
-                // Reset atomic counter to 0
-                commandBuffer.SetRenderTarget(_resources.SpdAtomicCounter);
-                commandBuffer.ClearRenderTarget(false, true, Color.clear);
             }
             
             int frameIndex = _resourceFrameIndex % 2;
@@ -209,6 +205,10 @@ namespace FidelityFX
                 // Auto exposure always used to track luma changes in locking logic
                 commandBuffer.SetRenderTarget(_resources.AutoExposure);
                 commandBuffer.ClearRenderTarget(false, true, new Color(-1f, 1e8f, 0f, 0f));
+
+                // Reset atomic counter to 0
+                commandBuffer.SetRenderTarget(_resources.SpdAtomicCounter);
+                commandBuffer.ClearRenderTarget(false, true, Color.clear);
             }
             
             // Auto exposure
