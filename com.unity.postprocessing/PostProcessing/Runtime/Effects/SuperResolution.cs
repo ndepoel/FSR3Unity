@@ -257,7 +257,7 @@ namespace UnityEngine.Rendering.PostProcessing
             var jitterTranslationMatrix = Matrix4x4.Translate(new Vector3(jitterX, jitterY, 0));
             camera.nonJitteredProjectionMatrix = camera.projectionMatrix;
             camera.projectionMatrix = jitterTranslationMatrix * camera.nonJitteredProjectionMatrix;
-            camera.useJitteredProjectionMatrixForTransparentRendering = false;
+            camera.useJitteredProjectionMatrixForTransparentRendering = true;
 
             jitter = new Vector2(jitterX, jitterY);
         }
