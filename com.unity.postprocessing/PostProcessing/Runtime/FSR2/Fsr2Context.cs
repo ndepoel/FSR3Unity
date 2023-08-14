@@ -215,8 +215,8 @@ namespace FidelityFX
             SetupSpdConstants(dispatchParams, out var dispatchThreadGroupCount);
             
             // Initialize constant buffers data
-            _fsr2ConstantsBuffer.SetData(_fsr2ConstantsArray);
-            _spdConstantsBuffer.SetData(_spdConstantsArray);
+            commandBuffer.SetBufferData(_fsr2ConstantsBuffer, _fsr2ConstantsArray);
+            commandBuffer.SetBufferData(_spdConstantsBuffer, _spdConstantsArray);
 
             // Auto reactive
             if (dispatchParams.EnableAutoReactive)
@@ -245,7 +245,7 @@ namespace FidelityFX
             {
                 // Compute the constants
                 SetupRcasConstants(dispatchParams);
-                _rcasConstantsBuffer.SetData(_rcasConstantsArray);
+                commandBuffer.SetBufferData(_rcasConstantsBuffer, _rcasConstantsArray);
                 
                 // Dispatch RCAS
                 const int threadGroupWorkRegionDimRcas = 16;
@@ -276,7 +276,7 @@ namespace FidelityFX
             GenReactiveConsts.threshold = dispatchParams.CutoffThreshold;
             GenReactiveConsts.binaryValue = dispatchParams.BinaryValue;
             GenReactiveConsts.flags = (uint)dispatchParams.Flags;
-            _generateReactiveConstantsBuffer.SetData(_generateReactiveConstantsArray);
+            commandBuffer.SetBufferData(_generateReactiveConstantsBuffer, _generateReactiveConstantsArray);
             
             ((Fsr2GenerateReactivePipeline)_generateReactivePipeline).ScheduleDispatch(commandBuffer, dispatchParams, dispatchSrcX, dispatchSrcY);
         }
@@ -291,7 +291,7 @@ namespace FidelityFX
             TcrAutoGenConsts.autoTcScale = dispatchParams.AutoTcScale;
             TcrAutoGenConsts.autoReactiveScale = dispatchParams.AutoReactiveScale;
             TcrAutoGenConsts.autoReactiveMax = dispatchParams.AutoReactiveMax;
-            _tcrAutogenerateConstantsBuffer.SetData(_tcrAutogenerateConstantsArray);
+            commandBuffer.SetBufferData(_tcrAutogenerateConstantsBuffer, _tcrAutogenerateConstantsArray);
             
             _tcrAutogeneratePipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
         }
