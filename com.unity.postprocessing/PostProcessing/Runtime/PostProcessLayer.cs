@@ -685,12 +685,9 @@ namespace UnityEngine.Rendering.PostProcessing
                 aoRenderer.Get().RenderAfterOpaque(context);
             }
 
-            bool fsrRequiresOpaque = context.IsSuperResolutionActive() && (superResolution.autoGenerateReactiveMask || superResolution.autoGenerateTransparencyAndComposition);
-
             bool isFogActive = fog.IsEnabledAndSupported(context);
             bool hasCustomOpaqueOnlyEffects = HasOpaqueOnlyEffects(context);
             int opaqueOnlyEffects = 0;
-            opaqueOnlyEffects += fsrRequiresOpaque ? 1 : 0;
             opaqueOnlyEffects += isScreenSpaceReflectionsActive ? 1 : 0;
             opaqueOnlyEffects += isFogActive ? 1 : 0;
             opaqueOnlyEffects += hasCustomOpaqueOnlyEffects ? 1 : 0;
@@ -714,13 +711,6 @@ namespace UnityEngine.Rendering.PostProcessing
                     cmd.BuiltinBlit(context.source, context.destination, RuntimeUtilities.copyStdMaterial, stopNaNPropagation ? 1 : 0);
                     UpdateSrcDstForOpaqueOnly(ref srcTarget, ref dstTarget, context, cameraTarget, opaqueOnlyEffects);
                 }
-                
-                if (fsrRequiresOpaque)
-                {
-                    m_opaqueOnly = context.GetScreenSpaceTemporaryRT();
-                    cmd.BuiltinBlit(context.source, m_opaqueOnly);
-                    opaqueOnlyEffects--;
-                }
 
                 if (isScreenSpaceReflectionsActive)
                 {
@@ -740,6 +730,13 @@ namespace UnityEngine.Rendering.PostProcessing
                     RenderOpaqueOnly(context);
 
                 cmd.ReleaseTemporaryRT(srcTarget);
+            }
+            
+            // Create a copy of the opaque-only color buffer for auto-reactive mask generation
+            if (context.IsSuperResolutionActive() && (superResolution.autoGenerateReactiveMask || superResolution.autoGenerateTransparencyAndComposition))
+            {
+                m_opaqueOnly = context.GetScreenSpaceTemporaryRT(colorFormat: sourceFormat);
+                m_LegacyCmdBufferOpaque.BuiltinBlit(cameraTarget, m_opaqueOnly);
             }
 
             // Post-transparency stack
