@@ -125,6 +125,13 @@ namespace FidelityFX
             return Mathf.Abs(value) < Mathf.Epsilon ? 1.0f : Mathf.Sin(Mathf.PI * value) / (Mathf.PI * value) * (Mathf.Sin(0.5f * Mathf.PI * value) / (0.5f * Mathf.PI * value));
         }
         
+#if !UNITY_2021_1_OR_NEWER
+        internal static void SetBufferData(this CommandBuffer commandBuffer, ComputeBuffer computeBuffer, Array data)
+        {
+            commandBuffer.SetComputeBufferData(computeBuffer, data);
+        }
+#endif
+        
         public enum QualityMode
         {
             UltraQuality = 0,
