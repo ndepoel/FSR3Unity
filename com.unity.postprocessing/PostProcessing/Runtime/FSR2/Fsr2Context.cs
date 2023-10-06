@@ -39,14 +39,14 @@ namespace FidelityFX
         private Fsr2.ContextDescription _contextDescription;
         private CommandBuffer _commandBuffer;
         
-        private Fsr2Pipeline _depthClipPipeline;
-        private Fsr2Pipeline _reconstructPreviousDepthPipeline;
-        private Fsr2Pipeline _lockPipeline;
-        private Fsr2Pipeline _accumulatePipeline;
-        private Fsr2Pipeline _rcasPipeline;
-        private Fsr2Pipeline _computeLuminancePyramidPipeline;
-        private Fsr2Pipeline _generateReactivePipeline;
-        private Fsr2Pipeline _tcrAutogeneratePipeline;
+        private Fsr2Pass _depthClipPass;
+        private Fsr2Pass _reconstructPreviousDepthPass;
+        private Fsr2Pass _lockPass;
+        private Fsr2Pass _accumulatePass;
+        private Fsr2Pass _rcasPass;
+        private Fsr2Pass _computeLuminancePyramidPass;
+        private Fsr2Pass _generateReactivePass;
+        private Fsr2Pass _tcrAutogeneratePass;
 
         private readonly Fsr2Resources _resources = new Fsr2Resources();
 
@@ -92,31 +92,31 @@ namespace FidelityFX
             Constants.displaySize = _contextDescription.DisplaySize;
             
             _resources.Create(_contextDescription);
-            CreatePipelines();
+            CreatePasses();
         }
 
-        private void CreatePipelines()
+        private void CreatePasses()
         {
-            _computeLuminancePyramidPipeline = new Fsr2ComputeLuminancePyramidPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer, _spdConstantsBuffer);
-            _reconstructPreviousDepthPipeline = new Fsr2ReconstructPreviousDepthPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
-            _depthClipPipeline = new Fsr2DepthClipPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
-            _lockPipeline = new Fsr2LockPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
-            _accumulatePipeline = new Fsr2AccumulatePipeline(_contextDescription, _resources, _fsr2ConstantsBuffer);
-            _rcasPipeline = new Fsr2RcasPipeline(_contextDescription, _resources, _fsr2ConstantsBuffer, _rcasConstantsBuffer);
-            _generateReactivePipeline = new Fsr2GenerateReactivePipeline(_contextDescription, _resources, _generateReactiveConstantsBuffer);
-            _tcrAutogeneratePipeline = new Fsr2TcrAutogeneratePipeline(_contextDescription, _resources, _fsr2ConstantsBuffer, _tcrAutogenerateConstantsBuffer);
+            _computeLuminancePyramidPass = new Fsr2ComputeLuminancePyramidPass(_contextDescription, _resources, _fsr2ConstantsBuffer, _spdConstantsBuffer);
+            _reconstructPreviousDepthPass = new Fsr2ReconstructPreviousDepthPass(_contextDescription, _resources, _fsr2ConstantsBuffer);
+            _depthClipPass = new Fsr2DepthClipPass(_contextDescription, _resources, _fsr2ConstantsBuffer);
+            _lockPass = new Fsr2LockPass(_contextDescription, _resources, _fsr2ConstantsBuffer);
+            _accumulatePass = new Fsr2AccumulatePass(_contextDescription, _resources, _fsr2ConstantsBuffer);
+            _rcasPass = new Fsr2RcasPass(_contextDescription, _resources, _fsr2ConstantsBuffer, _rcasConstantsBuffer);
+            _generateReactivePass = new Fsr2GenerateReactivePass(_contextDescription, _resources, _generateReactiveConstantsBuffer);
+            _tcrAutogeneratePass = new Fsr2TcrAutogeneratePass(_contextDescription, _resources, _fsr2ConstantsBuffer, _tcrAutogenerateConstantsBuffer);
         }
         
         public void Destroy()
         {
-            DestroyPipeline(ref _tcrAutogeneratePipeline);
-            DestroyPipeline(ref _generateReactivePipeline);
-            DestroyPipeline(ref _computeLuminancePyramidPipeline);
-            DestroyPipeline(ref _rcasPipeline);
-            DestroyPipeline(ref _accumulatePipeline);
-            DestroyPipeline(ref _lockPipeline);
-            DestroyPipeline(ref _reconstructPreviousDepthPipeline);
-            DestroyPipeline(ref _depthClipPipeline);
+            DestroyPass(ref _tcrAutogeneratePass);
+            DestroyPass(ref _generateReactivePass);
+            DestroyPass(ref _computeLuminancePyramidPass);
+            DestroyPass(ref _rcasPass);
+            DestroyPass(ref _accumulatePass);
+            DestroyPass(ref _lockPass);
+            DestroyPass(ref _reconstructPreviousDepthPass);
+            DestroyPass(ref _depthClipPass);
             
             _resources.Destroy();
             
@@ -158,18 +158,21 @@ namespace FidelityFX
 
             // If auto exposure is enabled use the auto exposure SRV, otherwise what the app sends
             if ((_contextDescription.Flags & Fsr2.InitializationFlags.EnableAutoExposure) != 0)
-                dispatchParams.Exposure = _resources.AutoExposure;
-            else if (dispatchParams.Exposure == null) 
-                dispatchParams.Exposure = _resources.DefaultExposure;
+                dispatchParams.Exposure = new Fsr2.ResourceView(_resources.AutoExposure);
+            else if (!dispatchParams.Exposure.IsValid) 
+                dispatchParams.Exposure = new Fsr2.ResourceView(_resources.DefaultExposure);
 
             if (dispatchParams.EnableAutoReactive)
             {
                 // Create the auto-TCR resources only when we need them
                 if (_resources.AutoReactive == null)
                     _resources.CreateTcrAutogenResources(_contextDescription);
-                
+
                 if (resetAccumulation)
-                    commandBuffer.Blit(_resources.PrevPreAlpha[frameIndex ^ 1], dispatchParams.ColorOpaqueOnly ?? Fsr2ShaderIDs.SrvOpaqueOnly);
+                {
+                    RenderTargetIdentifier opaqueOnly = dispatchParams.ColorOpaqueOnly.IsValid ? dispatchParams.ColorOpaqueOnly.RenderTarget : Fsr2ShaderIDs.SrvOpaqueOnly;
+                    commandBuffer.Blit(_resources.PrevPreAlpha[frameIndex ^ 1], opaqueOnly);
+                }
             }
             else if (_resources.AutoReactive != null)
             {
@@ -177,8 +180,8 @@ namespace FidelityFX
                 _resources.DestroyTcrAutogenResources();
             }
             
-            if (dispatchParams.Reactive == null) dispatchParams.Reactive = _resources.DefaultReactive;
-            if (dispatchParams.TransparencyAndComposition == null) dispatchParams.TransparencyAndComposition = _resources.DefaultReactive;
+            if (!dispatchParams.Reactive.IsValid) dispatchParams.Reactive = new Fsr2.ResourceView(_resources.DefaultReactive);
+            if (!dispatchParams.TransparencyAndComposition.IsValid) dispatchParams.TransparencyAndComposition = new Fsr2.ResourceView(_resources.DefaultReactive);
             Fsr2Resources.CreateAliasableResources(commandBuffer, _contextDescription, dispatchParams);
             
             SetupConstants(dispatchParams, resetAccumulation);
@@ -222,24 +225,24 @@ namespace FidelityFX
             if (dispatchParams.EnableAutoReactive)
             {
                 GenerateTransparencyCompositionReactive(dispatchParams, commandBuffer, frameIndex);
-                dispatchParams.Reactive = _resources.AutoReactive;
-                dispatchParams.TransparencyAndComposition = _resources.AutoComposition;
+                dispatchParams.Reactive = new Fsr2.ResourceView(_resources.AutoReactive);
+                dispatchParams.TransparencyAndComposition = new Fsr2.ResourceView(_resources.AutoComposition);
             }
             
             // Compute luminance pyramid
-            _computeLuminancePyramidPipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchThreadGroupCount.x, dispatchThreadGroupCount.y);
+            _computeLuminancePyramidPass.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchThreadGroupCount.x, dispatchThreadGroupCount.y);
 
             // Reconstruct previous depth
-            _reconstructPreviousDepthPipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
+            _reconstructPreviousDepthPass.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
 
             // Depth clip
-            _depthClipPipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
+            _depthClipPass.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
 
             // Create locks
-            _lockPipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
+            _lockPass.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
 
             // Accumulate
-            _accumulatePipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchDstX, dispatchDstY);
+            _accumulatePass.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchDstX, dispatchDstY);
 
             if (dispatchParams.EnableSharpening)
             {
@@ -251,7 +254,7 @@ namespace FidelityFX
                 const int threadGroupWorkRegionDimRcas = 16;
                 int threadGroupsX = (Screen.width + threadGroupWorkRegionDimRcas - 1) / threadGroupWorkRegionDimRcas;
                 int threadGroupsY = (Screen.height + threadGroupWorkRegionDimRcas - 1) / threadGroupWorkRegionDimRcas;
-                _rcasPipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, threadGroupsX, threadGroupsY);
+                _rcasPass.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, threadGroupsX, threadGroupsY);
             }
 
             _resourceFrameIndex = (_resourceFrameIndex + 1) % MaxQueuedFrames;
@@ -278,7 +281,7 @@ namespace FidelityFX
             GenReactiveConsts.flags = (uint)dispatchParams.Flags;
             commandBuffer.SetBufferData(_generateReactiveConstantsBuffer, _generateReactiveConstantsArray);
             
-            ((Fsr2GenerateReactivePipeline)_generateReactivePipeline).ScheduleDispatch(commandBuffer, dispatchParams, dispatchSrcX, dispatchSrcY);
+            ((Fsr2GenerateReactivePass)_generateReactivePass).ScheduleDispatch(commandBuffer, dispatchParams, dispatchSrcX, dispatchSrcY);
         }
 
         private void GenerateTransparencyCompositionReactive(Fsr2.DispatchDescription dispatchParams, CommandBuffer commandBuffer, int frameIndex)
@@ -293,7 +296,7 @@ namespace FidelityFX
             TcrAutoGenConsts.autoReactiveMax = dispatchParams.AutoReactiveMax;
             commandBuffer.SetBufferData(_tcrAutogenerateConstantsBuffer, _tcrAutogenerateConstantsArray);
             
-            _tcrAutogeneratePipeline.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
+            _tcrAutogeneratePass.ScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchSrcX, dispatchSrcY);
         }
 
         private void SetupConstants(Fsr2.DispatchDescription dispatchParams, bool resetAccumulation)
@@ -353,7 +356,7 @@ namespace FidelityFX
                 constants.frameIndex++;
 
             // Shading change usage of the SPD mip levels
-            constants.lumaMipLevelToUse = Fsr2Pipeline.ShadingChangeMipLevel;
+            constants.lumaMipLevelToUse = Fsr2Pass.ShadingChangeMipLevel;
 
             float mipDiv = 2 << constants.lumaMipLevelToUse;
             constants.lumaMipDimensions.x = (int)(constants.maxRenderSize.x / mipDiv);
@@ -395,7 +398,7 @@ namespace FidelityFX
 
         private void SetupRcasConstants(Fsr2.DispatchDescription dispatchParams)
         {
-            int sharpnessIndex = Mathf.RoundToInt(Mathf.Clamp01(dispatchParams.Sharpness) * (RcasConfigs.Count - 1));
+            int sharpnessIndex = Mathf.RoundToInt(Mathf.Clamp01(dispatchParams.Sharpness) * (RcasConfigs.Length - 1));
             RcasConsts = RcasConfigs[sharpnessIndex];
         }
 
@@ -433,31 +436,27 @@ namespace FidelityFX
 
         private void DebugCheckDispatch(Fsr2.DispatchDescription dispatchParams)
         {
-            // Global texture binding may be queued as part of the command list, which is why we check these after running the process at least once
-            if (!_firstExecution && !dispatchParams.Reset)
+            if (!dispatchParams.Color.IsValid)
             {
-                if (!dispatchParams.Color.HasValue && Shader.GetGlobalTexture(Fsr2ShaderIDs.SrvInputColor) == null)
-                {
-                    Debug.LogError("Color resource is null");
-                }
-
-                if (!dispatchParams.Depth.HasValue && Shader.GetGlobalTexture(Fsr2ShaderIDs.SrvInputDepth) == null)
-                {
-                    Debug.LogError("Depth resource is null");
-                }
-
-                if (!dispatchParams.MotionVectors.HasValue && Shader.GetGlobalTexture(Fsr2ShaderIDs.SrvInputMotionVectors) == null)
-                {
-                    Debug.LogError("MotionVectors resource is null");
-                }
-                
-                if (!dispatchParams.Output.HasValue && Shader.GetGlobalTexture(Fsr2ShaderIDs.UavUpscaledOutput) == null)
-                {
-                    Debug.LogError("Output resource is null");
-                }
+                Debug.LogError("Color resource is null");
             }
-
-            if (dispatchParams.Exposure.HasValue && (_contextDescription.Flags & Fsr2.InitializationFlags.EnableAutoExposure) != 0)
+            
+            if (!dispatchParams.Depth.IsValid)
+            {
+                Debug.LogError("Depth resource is null");
+            }
+            
+            if (!dispatchParams.MotionVectors.IsValid)
+            {
+                Debug.LogError("MotionVectors resource is null");
+            }
+            
+            if (!dispatchParams.Output.IsValid)
+            {
+                Debug.LogError("Output resource is null");
+            }
+            
+            if (dispatchParams.Exposure.IsValid && (_contextDescription.Flags & Fsr2.InitializationFlags.EnableAutoExposure) != 0)
             {
                 Debug.LogWarning("Exposure resource provided, however auto exposure flag is present");
             }
@@ -556,7 +555,7 @@ namespace FidelityFX
         /// The FSR2 C++ codebase uses floats bitwise converted to ints to pass sharpness parameters to the RCAS shader.
         /// This is not possible in C# without enabling unsafe code compilation, so to avoid that we instead use a table of precomputed values.
         /// </summary>
-        private static readonly List<Fsr2.RcasConstants> RcasConfigs = new List<Fsr2.RcasConstants>()
+        private static readonly Fsr2.RcasConstants[] RcasConfigs = new []
         {
             new Fsr2.RcasConstants(1048576000u, 872428544u),
             new Fsr2.RcasConstants(1049178080u, 877212745u),
@@ -595,13 +594,13 @@ namespace FidelityFX
             bufferRef = null;
         }
 
-        private static void DestroyPipeline(ref Fsr2Pipeline pipeline)
+        private static void DestroyPass(ref Fsr2Pass pass)
         {
-            if (pipeline == null)
+            if (pass == null)
                 return;
             
-            pipeline.Dispose();
-            pipeline = null;
+            pass.Dispose();
+            pass = null;
         }
     }
 }

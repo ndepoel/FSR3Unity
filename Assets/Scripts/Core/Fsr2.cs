@@ -162,20 +162,50 @@ namespace FidelityFX
             public Vector2Int DisplaySize;
             public IFsr2Callbacks Callbacks;
         }
+        
+        /// <summary>
+        /// An immutable structure wrapping all of the necessary information to bind a specific buffer or attachment of a render target to a compute shader.
+        /// </summary>
+        public readonly struct ResourceView
+        {
+            /// <summary>
+            /// This value is the equivalent of not setting any value at all; all struct fields will have their default values.
+            /// It does not refer to a valid texture, therefore any variable set to this value should be checked for IsValid and reassigned before being bound to a shader.
+            /// </summary>
+            public static readonly ResourceView Unassigned = new ResourceView(default);
+            
+            /// <summary>
+            /// This value contains a valid texture reference that can be bound to a shader, however it is just an empty placeholder texture.
+            /// Binding this to a shader can be seen as setting the texture variable inside the shader to null.
+            /// </summary>
+            public static readonly ResourceView None = new ResourceView(BuiltinRenderTextureType.None);
+            
+            public ResourceView(in RenderTargetIdentifier renderTarget, RenderTextureSubElement subElement = RenderTextureSubElement.Default, int mipLevel = 0)
+            {
+                RenderTarget = renderTarget;
+                SubElement = subElement;
+                MipLevel = mipLevel;
+            }
+            
+            public bool IsValid => !RenderTarget.Equals(default);
+            
+            public readonly RenderTargetIdentifier RenderTarget;
+            public readonly RenderTextureSubElement SubElement;
+            public readonly int MipLevel;
+        }
 
         /// <summary>
-        /// The input and output resources are all optional. If they are null, the Fsr2Context won't try to bind them to any shaders.
-        /// This allows for customized and more efficient resource management outside of Fsr2Context, tailored to the specific scenario.
+        /// A structure encapsulating the parameters for dispatching the various passes of FidelityFX Super Resolution 2.
         /// </summary>
         public class DispatchDescription
         {
-            public RenderTargetIdentifier? Color;
-            public RenderTargetIdentifier? Depth;
-            public RenderTargetIdentifier? MotionVectors;
-            public RenderTargetIdentifier? Exposure;
-            public RenderTargetIdentifier? Reactive;
-            public RenderTargetIdentifier? TransparencyAndComposition;
-            public RenderTargetIdentifier? Output;
+            public ResourceView Color;
+            public ResourceView Depth;
+            public ResourceView MotionVectors;
+            public ResourceView Exposure;                       // optional
+            public ResourceView Reactive;                       // optional
+            public ResourceView TransparencyAndComposition;     // optional
+            public ResourceView Output;
             public Vector2 JitterOffset;
             public Vector2 MotionVectorScale;
             public Vector2Int RenderSize;
@@ -192,7 +222,7 @@ namespace FidelityFX
             
             // EXPERIMENTAL reactive mask generation parameters
             public bool EnableAutoReactive;
-            public RenderTargetIdentifier? ColorOpaqueOnly;
+            public ResourceView ColorOpaqueOnly;
             public float AutoTcThreshold = 0.05f;
             public float AutoTcScale = 1.0f;
             public float AutoReactiveScale = 5.0f;
@@ -200,13 +230,14 @@ namespace FidelityFX
         }
 
         /// <summary>
+        /// A structure encapsulating the parameters for automatic generation of a reactive mask.
         /// The default values for Scale, CutoffThreshold, BinaryValue and Flags were taken from the FSR2 demo project.
         /// </summary>
         public class GenerateReactiveDescription
         {
-            public RenderTargetIdentifier? ColorOpaqueOnly;
-            public RenderTargetIdentifier? ColorPreUpscale;
-            public RenderTargetIdentifier? OutReactive;
+            public ResourceView ColorOpaqueOnly;
+            public ResourceView ColorPreUpscale;
+            public ResourceView OutReactive;
             public Vector2Int RenderSize;
             public float Scale = 0.5f;
             public float CutoffThreshold = 0.2f;

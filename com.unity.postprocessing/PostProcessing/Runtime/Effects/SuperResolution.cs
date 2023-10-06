@@ -178,10 +178,6 @@ namespace UnityEngine.Rendering.PostProcessing
                 CreateFsrContext(context);
             }
 
-            cmd.SetGlobalTexture(Fsr2ShaderIDs.SrvInputColor, context.source);
-            cmd.SetGlobalTexture(Fsr2ShaderIDs.SrvInputDepth, BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
-            cmd.SetGlobalTexture(Fsr2ShaderIDs.SrvInputMotionVectors, BuiltinRenderTextureType.MotionVectors);
-            
             SetupDispatchDescription(context);
 
             if (autoGenerateReactiveMask)
@@ -191,7 +187,7 @@ namespace UnityEngine.Rendering.PostProcessing
                 var scaledRenderSize = _genReactiveDescription.RenderSize;
                 cmd.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, scaledRenderSize.x, scaledRenderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
                 _fsrContext.GenerateReactiveMask(_genReactiveDescription, cmd);
-                _dispatchDescription.Reactive = Fsr2ShaderIDs.UavAutoReactive;
+                _dispatchDescription.Reactive = new Fsr2.ResourceView(Fsr2ShaderIDs.UavAutoReactive);
             }
             
             _fsrContext.Dispatch(_dispatchDescription, cmd);
@@ -267,22 +263,21 @@ namespace UnityEngine.Rendering.PostProcessing
             var camera = context.camera;
             
             // Set up the main FSR2 dispatch parameters
-            // The input textures are left blank here, as they get bound directly through SetGlobalTexture elsewhere in this source file
-            _dispatchDescription.Color = null;
-            _dispatchDescription.Depth = null;
-            _dispatchDescription.MotionVectors = null;
-            _dispatchDescription.Exposure = null;
-            _dispatchDescription.Reactive = null;
-            _dispatchDescription.TransparencyAndComposition = null;
+            _dispatchDescription.Color = new Fsr2.ResourceView(context.source);
+            _dispatchDescription.Depth = new Fsr2.ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
+            _dispatchDescription.MotionVectors = new Fsr2.ResourceView(BuiltinRenderTextureType.MotionVectors);
+            _dispatchDescription.Exposure = Fsr2.ResourceView.Unassigned;
+            _dispatchDescription.Reactive = Fsr2.ResourceView.Unassigned;
+            _dispatchDescription.TransparencyAndComposition = Fsr2.ResourceView.Unassigned;
 
-            if (exposureSource == ExposureSource.Manual && exposure != null) _dispatchDescription.Exposure = exposure;
-            if (exposureSource == ExposureSource.Unity) _dispatchDescription.Exposure = context.autoExposureTexture;
-            if (reactiveMask != null) _dispatchDescription.Reactive = reactiveMask;
-            if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = transparencyAndCompositionMask;
+            if (exposureSource == ExposureSource.Manual && exposure != null) _dispatchDescription.Exposure = new Fsr2.ResourceView(exposure);
+            if (exposureSource == ExposureSource.Unity) _dispatchDescription.Exposure = new Fsr2.ResourceView(context.autoExposureTexture);
+            if (reactiveMask != null) _dispatchDescription.Reactive = new Fsr2.ResourceView(reactiveMask);
+            if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = new Fsr2.ResourceView(transparencyAndCompositionMask);
 
             var scaledRenderSize = GetScaledRenderSize(context.camera);
             
-            _dispatchDescription.Output = context.destination;
+            _dispatchDescription.Output = new Fsr2.ResourceView(context.destination);
             _dispatchDescription.PreExposure = preExposure;
             _dispatchDescription.EnableSharpening = performSharpenPass;
             _dispatchDescription.Sharpness = sharpness;
@@ -301,7 +296,7 @@ namespace UnityEngine.Rendering.PostProcessing
             _dispatchDescription.EnableAutoReactive = autoGenerateTransparencyAndComposition;
             if (autoGenerateTransparencyAndComposition)
             {
-                _dispatchDescription.ColorOpaqueOnly = colorOpaqueOnly;
+                _dispatchDescription.ColorOpaqueOnly = new Fsr2.ResourceView(colorOpaqueOnly);
                 _dispatchDescription.AutoTcThreshold = generateTransparencyAndCompositionParameters.autoTcThreshold;
                 _dispatchDescription.AutoTcScale = generateTransparencyAndCompositionParameters.autoTcScale;
                 _dispatchDescription.AutoReactiveScale = generateTransparencyAndCompositionParameters.autoReactiveScale;
@@ -318,9 +313,9 @@ namespace UnityEngine.Rendering.PostProcessing
         private void SetupAutoReactiveDescription(PostProcessRenderContext context)
         {
             // Set up the parameters to auto-generate a reactive mask
-            _genReactiveDescription.ColorOpaqueOnly = colorOpaqueOnly;
-            _genReactiveDescription.ColorPreUpscale = null;
-            _genReactiveDescription.OutReactive = null;
+            _genReactiveDescription.ColorOpaqueOnly = new Fsr2.ResourceView(colorOpaqueOnly);
+            _genReactiveDescription.ColorPreUpscale = new Fsr2.ResourceView(context.source);
+            _genReactiveDescription.OutReactive = new Fsr2.ResourceView(Fsr2ShaderIDs.UavAutoReactive);
             _genReactiveDescription.RenderSize = GetScaledRenderSize(context.camera);
             _genReactiveDescription.Scale = generateReactiveParameters.scale;
             _genReactiveDescription.CutoffThreshold = generateReactiveParameters.cutoffThreshold;

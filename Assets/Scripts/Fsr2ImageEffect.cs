@@ -301,21 +301,20 @@ namespace FidelityFX
         private void SetupDispatchDescription()
         {
             // Set up the main FSR2 dispatch parameters
-            // The input and output textures are left blank here, as they get bound directly through SetGlobalTexture and GetTemporaryRT elsewhere in this source file
-            _dispatchDescription.Color = null;
-            _dispatchDescription.Depth = null;
-            _dispatchDescription.MotionVectors = null;
-            _dispatchDescription.Exposure = null;
-            _dispatchDescription.Reactive = null;
-            _dispatchDescription.TransparencyAndComposition = null;
+            _dispatchDescription.Color = new Fsr2.ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Color);
+            _dispatchDescription.Depth = new Fsr2.ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
+            _dispatchDescription.MotionVectors = new Fsr2.ResourceView(BuiltinRenderTextureType.MotionVectors);
+            _dispatchDescription.Exposure = Fsr2.ResourceView.Unassigned;
+            _dispatchDescription.Reactive = Fsr2.ResourceView.Unassigned;
+            _dispatchDescription.TransparencyAndComposition = Fsr2.ResourceView.Unassigned;
             
-            if (!enableAutoExposure && exposure != null) _dispatchDescription.Exposure = exposure;
-            if (reactiveMask != null) _dispatchDescription.Reactive = reactiveMask;
-            if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = transparencyAndCompositionMask;
+            if (!enableAutoExposure && exposure != null) _dispatchDescription.Exposure = new Fsr2.ResourceView(exposure);
+            if (reactiveMask != null) _dispatchDescription.Reactive = new Fsr2.ResourceView(reactiveMask);
+            if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = new Fsr2.ResourceView(transparencyAndCompositionMask);
 
             var scaledRenderSize = GetScaledRenderSize();
             
-            _dispatchDescription.Output = null;
+            _dispatchDescription.Output = new Fsr2.ResourceView(Fsr2ShaderIDs.UavUpscaledOutput);
             _dispatchDescription.PreExposure = preExposure;
             _dispatchDescription.EnableSharpening = performSharpenPass;
             _dispatchDescription.Sharpness = sharpness;
@@ -334,7 +333,7 @@ namespace FidelityFX
             _dispatchDescription.EnableAutoReactive = autoGenerateTransparencyAndComposition;
             if (autoGenerateTransparencyAndComposition)
             {
-                _dispatchDescription.ColorOpaqueOnly = _colorOpaqueOnly;
+                _dispatchDescription.ColorOpaqueOnly = new Fsr2.ResourceView(_colorOpaqueOnly);
                 _dispatchDescription.AutoTcThreshold = generateTransparencyAndCompositionParameters.autoTcThreshold;
                 _dispatchDescription.AutoTcScale = generateTransparencyAndCompositionParameters.autoTcScale;
                 _dispatchDescription.AutoReactiveScale = generateTransparencyAndCompositionParameters.autoReactiveScale;
@@ -351,9 +350,9 @@ namespace FidelityFX
         private void SetupAutoReactiveDescription()
         {
             // Set up the parameters to auto-generate a reactive mask
-            _genReactiveDescription.ColorOpaqueOnly = _colorOpaqueOnly;
-            _genReactiveDescription.ColorPreUpscale = null;
-            _genReactiveDescription.OutReactive = null;
+            _genReactiveDescription.ColorOpaqueOnly = new Fsr2.ResourceView(_colorOpaqueOnly);
+            _genReactiveDescription.ColorPreUpscale = new Fsr2.ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Color);
+            _genReactiveDescription.OutReactive = new Fsr2.ResourceView(Fsr2ShaderIDs.UavAutoReactive);
             _genReactiveDescription.RenderSize = GetScaledRenderSize();
             _genReactiveDescription.Scale = generateReactiveParameters.scale;
             _genReactiveDescription.CutoffThreshold = generateReactiveParameters.cutoffThreshold;
@@ -390,9 +389,6 @@ namespace FidelityFX
             _dispatchDescription.InputResourceSize = new Vector2Int(src.width, src.height);
 
             _dispatchCommandBuffer.Clear();
-            _dispatchCommandBuffer.SetGlobalTexture(Fsr2ShaderIDs.SrvInputColor, BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Color);
-            _dispatchCommandBuffer.SetGlobalTexture(Fsr2ShaderIDs.SrvInputDepth, BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
-            _dispatchCommandBuffer.SetGlobalTexture(Fsr2ShaderIDs.SrvInputMotionVectors, BuiltinRenderTextureType.MotionVectors);
 
             if (autoGenerateReactiveMask)
             {
@@ -400,7 +396,7 @@ namespace FidelityFX
                 var scaledRenderSize = GetScaledRenderSize();
                 _dispatchCommandBuffer.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, scaledRenderSize.x, scaledRenderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
                 _context.GenerateReactiveMask(_genReactiveDescription, _dispatchCommandBuffer);
-                _dispatchDescription.Reactive = Fsr2ShaderIDs.UavAutoReactive;
+                _dispatchDescription.Reactive = new Fsr2.ResourceView(Fsr2ShaderIDs.UavAutoReactive);
             }
 
             // The backbuffer is not set up to allow random-write access, so we need a temporary render texture for FSR2 to output to

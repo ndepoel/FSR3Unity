@@ -30,7 +30,7 @@ namespace FidelityFX
     /// This loosely matches the FfxPipelineState struct from the original FSR2 codebase, wrapped in an object-oriented blanket.
     /// These classes are responsible for loading compute shaders, managing temporary resources, binding resources to shader kernels and dispatching said shaders.
     /// </summary>
-    internal abstract class Fsr2Pipeline: IDisposable
+    internal abstract class Fsr2Pass: IDisposable
     {
         internal const int ShadingChangeMipLevel = 4;   // This matches the FFX_FSR2_SHADING_CHANGE_MIP_LEVEL define
 
@@ -43,7 +43,7 @@ namespace FidelityFX
         
         protected virtual bool AllowFP16 => true;
 
-        protected Fsr2Pipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
+        protected Fsr2Pass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
         {
             ContextDescription = contextDescription;
             Resources = resources;
@@ -115,11 +115,11 @@ namespace FidelityFX
         }
     }
 
-    internal class Fsr2ComputeLuminancePyramidPipeline : Fsr2Pipeline
+    internal class Fsr2ComputeLuminancePyramidPass : Fsr2Pass
     {
         private readonly ComputeBuffer _spdConstants;
         
-        public Fsr2ComputeLuminancePyramidPipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants, ComputeBuffer spdConstants)
+        public Fsr2ComputeLuminancePyramidPass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants, ComputeBuffer spdConstants)
             : base(contextDescription, resources, constants)
         {
             _spdConstants = spdConstants;
@@ -129,8 +129,8 @@ namespace FidelityFX
 
         public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
-            if (dispatchParams.Color.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, dispatchParams.Color.Value, 0, RenderTextureSubElement.Color);
+            ref var color = ref dispatchParams.Color;
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, color.RenderTarget, color.MipLevel, color.SubElement);
 
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavSpdAtomicCount, Resources.SpdAtomicCounter);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavExposureMipLumaChange, Resources.SceneLuminance, ShadingChangeMipLevel);
@@ -144,9 +144,9 @@ namespace FidelityFX
         }
     }
 
-    internal class Fsr2ReconstructPreviousDepthPipeline : Fsr2Pipeline
+    internal class Fsr2ReconstructPreviousDepthPass : Fsr2Pass
     {
-        public Fsr2ReconstructPreviousDepthPipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
+        public Fsr2ReconstructPreviousDepthPass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
             : base(contextDescription, resources, constants)
         {
             LoadComputeShader("FSR2/ffx_fsr2_reconstruct_previous_depth_pass");
@@ -154,18 +154,16 @@ namespace FidelityFX
 
         public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
-            if (dispatchParams.Color.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, dispatchParams.Color.Value, 0, RenderTextureSubElement.Color);
+            ref var color = ref dispatchParams.Color;
+            ref var depth = ref dispatchParams.Depth;
+            ref var motionVectors = ref dispatchParams.MotionVectors;
+            ref var exposure = ref dispatchParams.Exposure;
             
-            if (dispatchParams.Depth.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputDepth, dispatchParams.Depth.Value, 0, RenderTextureSubElement.Depth);
-            
-            if (dispatchParams.MotionVectors.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, dispatchParams.MotionVectors.Value);
-            
-            if (dispatchParams.Exposure.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, dispatchParams.Exposure.Value);
-            
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, color.RenderTarget, color.MipLevel, color.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputDepth, depth.RenderTarget, depth.MipLevel, depth.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, motionVectors.RenderTarget, motionVectors.MipLevel, motionVectors.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, exposure.RenderTarget, exposure.MipLevel, exposure.SubElement);
+
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavDilatedMotionVectors, Resources.DilatedMotionVectors[frameIndex]);
             
             commandBuffer.SetComputeConstantBufferParam(ComputeShader, Fsr2ShaderIDs.CbFsr2, Constants, 0, Marshal.SizeOf<Fsr2.Fsr2Constants>());
@@ -174,9 +172,9 @@ namespace FidelityFX
         }
     }
     
-    internal class Fsr2DepthClipPipeline : Fsr2Pipeline
+    internal class Fsr2DepthClipPass : Fsr2Pass
     {
-        public Fsr2DepthClipPipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
+        public Fsr2DepthClipPass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
             : base(contextDescription, resources, constants)
         {
             LoadComputeShader("FSR2/ffx_fsr2_depth_clip_pass");
@@ -184,24 +182,20 @@ namespace FidelityFX
 
         public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
-            if (dispatchParams.Color.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, dispatchParams.Color.Value, 0, RenderTextureSubElement.Color);
+            ref var color = ref dispatchParams.Color;
+            ref var depth = ref dispatchParams.Depth;
+            ref var motionVectors = ref dispatchParams.MotionVectors;
+            ref var exposure = ref dispatchParams.Exposure;
+            ref var reactive = ref dispatchParams.Reactive;
+            ref var tac = ref dispatchParams.TransparencyAndComposition;
             
-            if (dispatchParams.Depth.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputDepth, dispatchParams.Depth.Value, 0, RenderTextureSubElement.Depth);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, color.RenderTarget, color.MipLevel, color.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputDepth, depth.RenderTarget, depth.MipLevel, depth.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, motionVectors.RenderTarget, motionVectors.MipLevel, motionVectors.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, exposure.RenderTarget, exposure.MipLevel, exposure.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvReactiveMask, reactive.RenderTarget, reactive.MipLevel, reactive.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvTransparencyAndCompositionMask, tac.RenderTarget, tac.MipLevel, tac.SubElement);
 
-            if (dispatchParams.MotionVectors.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, dispatchParams.MotionVectors.Value);
-
-            if (dispatchParams.Exposure.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, dispatchParams.Exposure.Value);
-
-            if (dispatchParams.Reactive.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvReactiveMask, dispatchParams.Reactive.Value);
-            
-            if (dispatchParams.TransparencyAndComposition.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvTransparencyAndCompositionMask, dispatchParams.TransparencyAndComposition.Value);
-            
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvReconstructedPrevNearestDepth, Fsr2ShaderIDs.UavReconstructedPrevNearestDepth);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvDilatedMotionVectors, Resources.DilatedMotionVectors[frameIndex]);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvDilatedDepth, Fsr2ShaderIDs.UavDilatedDepth);
@@ -213,9 +207,9 @@ namespace FidelityFX
         }
     }
 
-    internal class Fsr2LockPipeline : Fsr2Pipeline
+    internal class Fsr2LockPass : Fsr2Pass
     {
-        public Fsr2LockPipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
+        public Fsr2LockPass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
             : base(contextDescription, resources, constants)
         {
             LoadComputeShader("FSR2/ffx_fsr2_lock_pass");
@@ -230,7 +224,7 @@ namespace FidelityFX
         }
     }
     
-    internal class Fsr2AccumulatePipeline : Fsr2Pipeline
+    internal class Fsr2AccumulatePass : Fsr2Pass
     {
         private const string SharpeningKeyword = "FFX_FSR2_OPTION_APPLY_SHARPENING";
         
@@ -241,7 +235,7 @@ namespace FidelityFX
         private readonly LocalKeyword _sharpeningKeyword;
 #endif
         
-        public Fsr2AccumulatePipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
+        public Fsr2AccumulatePass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
             : base(contextDescription, resources, constants)
         {
             LoadComputeShader("FSR2/ffx_fsr2_accumulate_pass");
@@ -265,13 +259,18 @@ namespace FidelityFX
 #endif
             
             if ((ContextDescription.Flags & Fsr2.InitializationFlags.EnableDisplayResolutionMotionVectors) == 0)
+            {
                 commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvDilatedMotionVectors, Resources.DilatedMotionVectors[frameIndex]);
-            else if (dispatchParams.MotionVectors.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, dispatchParams.MotionVectors.Value);
-            
-            if (dispatchParams.Exposure.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, dispatchParams.Exposure.Value);
-            
+            }
+            else
+            {
+                ref var motionVectors = ref dispatchParams.MotionVectors;
+                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, motionVectors.RenderTarget, motionVectors.MipLevel, motionVectors.SubElement);
+            }
+
+            ref var exposure = ref dispatchParams.Exposure;
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, exposure.RenderTarget, exposure.MipLevel, exposure.SubElement);
+
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvDilatedReactiveMasks, Fsr2ShaderIDs.UavDilatedReactiveMasks);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInternalUpscaled, Resources.InternalUpscaled[frameIndex ^ 1]);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvLockStatus, Resources.LockStatus[frameIndex ^ 1]);
@@ -286,8 +285,8 @@ namespace FidelityFX
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavLockStatus, Resources.LockStatus[frameIndex]);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavLumaHistory, Resources.LumaHistory[frameIndex]);
             
-            if (dispatchParams.Output.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavUpscaledOutput, dispatchParams.Output.Value);
+            ref var output = ref dispatchParams.Output;
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavUpscaledOutput, output.RenderTarget, output.MipLevel, output.SubElement);
 
             commandBuffer.SetComputeConstantBufferParam(ComputeShader, Fsr2ShaderIDs.CbFsr2, Constants, 0, Marshal.SizeOf<Fsr2.Fsr2Constants>());
             
@@ -295,11 +294,11 @@ namespace FidelityFX
         }
     }
 
-    internal class Fsr2RcasPipeline : Fsr2Pipeline
+    internal class Fsr2RcasPass : Fsr2Pass
     {
         private readonly ComputeBuffer _rcasConstants;
 
-        public Fsr2RcasPipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants, ComputeBuffer rcasConstants)
+        public Fsr2RcasPass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants, ComputeBuffer rcasConstants)
             : base(contextDescription, resources, constants)
         {
             _rcasConstants = rcasConstants;
@@ -309,13 +308,12 @@ namespace FidelityFX
 
         public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
-            if (dispatchParams.Exposure.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, dispatchParams.Exposure.Value);
-            
+            ref var exposure = ref dispatchParams.Exposure;
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputExposure, exposure.RenderTarget, exposure.MipLevel, exposure.SubElement);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvRcasInput, Resources.InternalUpscaled[frameIndex]);
             
-            if (dispatchParams.Output.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavUpscaledOutput, dispatchParams.Output.Value);
+            ref var output = ref dispatchParams.Output;
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavUpscaledOutput, output.RenderTarget, output.MipLevel, output.SubElement);
 
             commandBuffer.SetComputeConstantBufferParam(ComputeShader, Fsr2ShaderIDs.CbFsr2, Constants, 0, Marshal.SizeOf<Fsr2.Fsr2Constants>());
             commandBuffer.SetComputeConstantBufferParam(ComputeShader, Fsr2ShaderIDs.CbRcas, _rcasConstants, 0, Marshal.SizeOf<Fsr2.RcasConstants>());
@@ -324,11 +322,11 @@ namespace FidelityFX
         }
     }
 
-    internal class Fsr2GenerateReactivePipeline : Fsr2Pipeline
+    internal class Fsr2GenerateReactivePass : Fsr2Pass
     {
         private readonly ComputeBuffer _generateReactiveConstants;
 
-        public Fsr2GenerateReactivePipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer generateReactiveConstants)
+        public Fsr2GenerateReactivePass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer generateReactiveConstants)
             : base(contextDescription, resources, null)
         {
             _generateReactiveConstants = generateReactiveConstants;
@@ -342,14 +340,13 @@ namespace FidelityFX
 
         public void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.GenerateReactiveDescription dispatchParams, int dispatchX, int dispatchY)
         {
-            if (dispatchParams.ColorOpaqueOnly.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvOpaqueOnly, dispatchParams.ColorOpaqueOnly.Value, 0, RenderTextureSubElement.Color);
+            ref var opaqueOnly = ref dispatchParams.ColorOpaqueOnly;
+            ref var color = ref dispatchParams.ColorPreUpscale;
+            ref var reactive = ref dispatchParams.OutReactive;
             
-            if (dispatchParams.ColorPreUpscale.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, dispatchParams.ColorPreUpscale.Value, 0, RenderTextureSubElement.Color);
-            
-            if (dispatchParams.OutReactive.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavAutoReactive, dispatchParams.OutReactive.Value);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvOpaqueOnly, opaqueOnly.RenderTarget, opaqueOnly.MipLevel, opaqueOnly.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, color.RenderTarget, color.MipLevel, color.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavAutoReactive, reactive.RenderTarget, reactive.MipLevel, reactive.SubElement);
             
             commandBuffer.SetComputeConstantBufferParam(ComputeShader, Fsr2ShaderIDs.CbGenReactive, _generateReactiveConstants, 0, Marshal.SizeOf<Fsr2.GenerateReactiveConstants>());
             
@@ -357,11 +354,11 @@ namespace FidelityFX
         }
     }
 
-    internal class Fsr2TcrAutogeneratePipeline : Fsr2Pipeline
+    internal class Fsr2TcrAutogeneratePass : Fsr2Pass
     {
         private readonly ComputeBuffer _tcrAutogenerateConstants;
 
-        public Fsr2TcrAutogeneratePipeline(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants, ComputeBuffer tcrAutogenerateConstants)
+        public Fsr2TcrAutogeneratePass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants, ComputeBuffer tcrAutogenerateConstants)
             : base(contextDescription, resources, constants)
         {
             _tcrAutogenerateConstants = tcrAutogenerateConstants;
@@ -371,23 +368,19 @@ namespace FidelityFX
 
         public override void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
-            if (dispatchParams.ColorOpaqueOnly.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvOpaqueOnly, dispatchParams.ColorOpaqueOnly.Value, 0, RenderTextureSubElement.Color);
+            ref var color = ref dispatchParams.Color;
+            ref var motionVectors = ref dispatchParams.MotionVectors;
+            ref var opaqueOnly = ref dispatchParams.ColorOpaqueOnly;
+            ref var reactive = ref dispatchParams.Reactive;
+            ref var tac = ref dispatchParams.TransparencyAndComposition;
             
-            if (dispatchParams.Color.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, dispatchParams.Color.Value, 0, RenderTextureSubElement.Color);
-            
-            if (dispatchParams.MotionVectors.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, dispatchParams.MotionVectors.Value);
-            
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvOpaqueOnly, opaqueOnly.RenderTarget, opaqueOnly.MipLevel, opaqueOnly.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputColor, color.RenderTarget, color.MipLevel, color.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvInputMotionVectors, motionVectors.RenderTarget, motionVectors.MipLevel, motionVectors.SubElement);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvPrevColorPreAlpha, Resources.PrevPreAlpha[frameIndex ^ 1]);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvPrevColorPostAlpha, Resources.PrevPostAlpha[frameIndex ^ 1]);
-
-            if (dispatchParams.Reactive.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvReactiveMask, dispatchParams.Reactive.Value);
-
-            if (dispatchParams.TransparencyAndComposition.HasValue)
-                commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvTransparencyAndCompositionMask, dispatchParams.TransparencyAndComposition.Value);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvReactiveMask, reactive.RenderTarget, reactive.MipLevel, reactive.SubElement);
+            commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.SrvTransparencyAndCompositionMask, tac.RenderTarget, tac.MipLevel, tac.SubElement);
 
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavAutoReactive, Resources.AutoReactive);
             commandBuffer.SetComputeTextureParam(ComputeShader, KernelIndex, Fsr2ShaderIDs.UavAutoComposition, Resources.AutoComposition);
