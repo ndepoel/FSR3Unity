@@ -1,4 +1,5 @@
 using System;
+using FidelityFX;
 
 namespace UnityEngine.Rendering.PostProcessing
 {
@@ -214,9 +215,9 @@ namespace UnityEngine.Rendering.PostProcessing
             public ComputeShader gaussianDownsample;
 
             /// <summary>
-            /// Compute shaders that need to be looked up by name.
+            /// Compute shaders used by the FidelityFX Super Resolution 3 (FSR3) Upscaler.
             /// </summary>
-            public NamedComputeShader[] namedShaders;
+            public Fsr3UpscalerShaders superResolution;
             
             /// <summary>
             /// Returns a copy of this class and its content.
@@ -226,24 +227,6 @@ namespace UnityEngine.Rendering.PostProcessing
             {
                 return (ComputeShaders)MemberwiseClone();
             }
-
-            public ComputeShader FindComputeShader(string name)
-            {
-                for (int i = 0; i < namedShaders.Length; ++i)
-                {
-                    if (namedShaders[i].name == name)
-                        return namedShaders[i].shader;
-                }
-
-                return null;
-            }
-        }
-
-        [Serializable]
-        public class NamedComputeShader
-        {
-            public string name;
-            public ComputeShader shader;
         }
 
         /// <summary>

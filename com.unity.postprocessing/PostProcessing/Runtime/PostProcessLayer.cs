@@ -51,7 +51,7 @@ namespace UnityEngine.Rendering.PostProcessing
             TemporalAntialiasing,
             
             /// <summary>
-            /// FidelityFX Super Resolution 2 (FSR2).
+            /// FidelityFX Super Resolution 3 (FSR3) Upscaler.
             /// </summary>
             SuperResolution,
         }
@@ -97,7 +97,7 @@ namespace UnityEngine.Rendering.PostProcessing
         public TemporalAntialiasing temporalAntialiasing;
 
         /// <summary>
-        /// FSR2 upscaling & anti-aliasing settings for this camera.
+        /// FSR3 upscaling & anti-aliasing settings for this camera.
         /// </summary>
         public SuperResolution superResolution;
 
@@ -282,7 +282,9 @@ namespace UnityEngine.Rendering.PostProcessing
 #if UNITY_2019_1_OR_NEWER
         // We always use a CommandBuffer to blit to the final render target
         // OnRenderImage is used only to avoid the automatic blit from the RenderTexture of Camera.forceIntoRenderTexture to the actual target
+#if !UNITY_EDITOR
         [ImageEffectUsesCommandBuffer]
+#endif
         void OnRenderImage(RenderTexture src, RenderTexture dst)
         {
             if (m_opaqueOnly != null)
@@ -539,6 +541,10 @@ namespace UnityEngine.Rendering.PostProcessing
                     }
 #endif
                 }
+            }
+            else
+            {
+                m_Camera.nonJitteredProjectionMatrix = m_Camera.projectionMatrix;
             }
 
 #if (ENABLE_VR_MODULE && ENABLE_VR)
@@ -1191,7 +1197,7 @@ namespace UnityEngine.Rendering.PostProcessing
                     
                     // Set the upscaler's output to full display resolution, as well as for all following post-processing effects
                     context.SetRenderSize(superResolution.displaySize);
-                    
+
                     var fsrTarget = m_TargetPool.Get();
                     var finalDestination = context.destination;
                     context.GetScreenSpaceTemporaryRT(cmd, fsrTarget, 0, context.sourceFormat, isUpscaleOutput: true);

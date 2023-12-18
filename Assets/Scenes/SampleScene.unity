@@ -314,7 +314,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 955cb66a9ecc20441a7e32934c9b4690, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  qualityMode: 1
+  qualityMode: 2
   performSharpenPass: 1
   sharpness: 0.8
   enableFP16: 0
@@ -335,7 +335,7 @@ MonoBehaviour:
     autoTcScale: 1
     autoReactiveScale: 5
     autoReactiveMax: 0.9
-  outputMotionVectors: {fileID: 0}
+  assets: {fileID: 11400000, guid: 4151befafd86e8740ab09463b4f1bdbb, type: 2}
 --- !u!1001 &1313173313
 PrefabInstance:
   m_ObjectHideFlags: 0

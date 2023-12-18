@@ -31,10 +31,10 @@ namespace UnityEngine.Rendering.PostProcessing
     [Serializable]
     public class SuperResolution
     {
-        public Func<PostProcessRenderContext, IFsr2Callbacks> callbacksFactory { get; set; } = (context) => new Callbacks(context.resources);
+        public Func<PostProcessRenderContext, IFsr3UpscalerCallbacks> callbacksFactory { get; set; } = (context) => new Fsr3UpscalerCallbacksBase();
         
         [Tooltip("Standard scaling ratio presets.")]
-        public Fsr2.QualityMode qualityMode = Fsr2.QualityMode.Quality;
+        public Fsr3Upscaler.QualityMode qualityMode = Fsr3Upscaler.QualityMode.Quality;
 
         [Tooltip("Apply RCAS sharpening to the image after upscaling.")]
         public bool performSharpenPass = true;
@@ -44,7 +44,7 @@ namespace UnityEngine.Rendering.PostProcessing
         [Tooltip("Allow the use of half precision compute operations, potentially improving performance if the platform supports it.")]
         public bool enableFP16 = false;
         
-        [Tooltip("Choose where to get the exposure value from. Use auto-exposure from either FSR2 or Unity, provide a manual exposure texture, or use a default value.")]
+        [Tooltip("Choose where to get the exposure value from. Use auto-exposure from either FSR3 or Unity, provide a manual exposure texture, or use a default value.")]
         public ExposureSource exposureSource = ExposureSource.Auto;
         [Tooltip("Value by which the input signal will be divided, to get back to the original signal produced by the game.")]
         public float preExposure = 1.0f;
@@ -78,7 +78,7 @@ namespace UnityEngine.Rendering.PostProcessing
             [Tooltip("A value to set for the binary reactive mask")]
             [Range(0, 1)] public float binaryValue = 0.9f;
             [Tooltip("Flags to determine how to generate the reactive mask")]
-            public Fsr2.GenerateReactiveFlags flags = Fsr2.GenerateReactiveFlags.ApplyTonemap | Fsr2.GenerateReactiveFlags.ApplyThreshold | Fsr2.GenerateReactiveFlags.UseComponentsMax;
+            public Fsr3Upscaler.GenerateReactiveFlags flags = Fsr3Upscaler.GenerateReactiveFlags.ApplyTonemap | Fsr3Upscaler.GenerateReactiveFlags.ApplyThreshold | Fsr3Upscaler.GenerateReactiveFlags.UseComponentsMax;
         }
 
         [Tooltip("(Experimental) Automatically generate and use Reactive mask and Transparency & composition mask internally.")]
@@ -104,17 +104,17 @@ namespace UnityEngine.Rendering.PostProcessing
         public Vector2Int displaySize => _displaySize;
         public RenderTargetIdentifier colorOpaqueOnly { get; set; }
 
-        private Fsr2Context _fsrContext;
+        private Fsr3UpscalerContext _fsrContext;
         private Vector2Int _maxRenderSize;
         private Vector2Int _displaySize;
         private bool _resetHistory;
 
-        private IFsr2Callbacks _callbacks;
+        private IFsr3UpscalerCallbacks _callbacks;
 
-        private readonly Fsr2.DispatchDescription _dispatchDescription = new Fsr2.DispatchDescription();
-        private readonly Fsr2.GenerateReactiveDescription _genReactiveDescription = new Fsr2.GenerateReactiveDescription();
+        private readonly Fsr3Upscaler.DispatchDescription _dispatchDescription = new Fsr3Upscaler.DispatchDescription();
+        private readonly Fsr3Upscaler.GenerateReactiveDescription _genReactiveDescription = new Fsr3Upscaler.GenerateReactiveDescription();
 
-        private Fsr2.QualityMode _prevQualityMode;
+        private Fsr3Upscaler.QualityMode _prevQualityMode;
         private ExposureSource _prevExposureSource;
         private Vector2Int _prevDisplaySize;
 
@@ -152,11 +152,11 @@ namespace UnityEngine.Rendering.PostProcessing
             
             // Determine the desired rendering and display resolutions
             _displaySize = new Vector2Int(camera.pixelWidth, camera.pixelHeight);
-            Fsr2.GetRenderResolutionFromQualityMode(out int maxRenderWidth, out int maxRenderHeight, _displaySize.x, _displaySize.y, qualityMode);
+            Fsr3Upscaler.GetRenderResolutionFromQualityMode(out int maxRenderWidth, out int maxRenderHeight, _displaySize.x, _displaySize.y, qualityMode);
             _maxRenderSize = new Vector2Int(maxRenderWidth, maxRenderHeight);
             
             // Render to a smaller portion of the screen by manipulating the camera's viewport rect
-            camera.aspect = (_displaySize.x * _originalRect.width) / (_displaySize.y * _originalRect.height);
+            camera.aspect = (float)_displaySize.x / _displaySize.y;
             camera.rect = new Rect(0, 0, _originalRect.width * _maxRenderSize.x / _displaySize.x, _originalRect.height * _maxRenderSize.y / _displaySize.y);
         }
 
@@ -168,10 +168,10 @@ namespace UnityEngine.Rendering.PostProcessing
         public void Render(PostProcessRenderContext context)
         {
             var cmd = context.command;
-            cmd.BeginSample("FSR2");
+            cmd.BeginSample("FSR3 Upscaler");
 
-            // Monitor for any resolution changes and recreate the FSR2 context if necessary
-            // We can't create an FSR2 context without info from the post-processing context, so delay the initial setup until here
+            // Monitor for any resolution changes and recreate the FSR3 Upscaler context if necessary
+            // We can't create an FSR3 Upscaler context without info from the post-processing context, so delay the initial setup until here
             if (_fsrContext == null || _displaySize.x != _prevDisplaySize.x || _displaySize.y != _prevDisplaySize.y || qualityMode != _prevQualityMode || exposureSource != _prevExposureSource)
             {
                 DestroyFsrContext();
@@ -185,14 +185,14 @@ namespace UnityEngine.Rendering.PostProcessing
                 SetupAutoReactiveDescription(context);
 
                 var scaledRenderSize = _genReactiveDescription.RenderSize;
-                cmd.GetTemporaryRT(Fsr2ShaderIDs.UavAutoReactive, scaledRenderSize.x, scaledRenderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
+                cmd.GetTemporaryRT(Fsr3ShaderIDs.UavAutoReactive, scaledRenderSize.x, scaledRenderSize.y, 0, default, GraphicsFormat.R8_UNorm, 1, true);
                 _fsrContext.GenerateReactiveMask(_genReactiveDescription, cmd);
-                _dispatchDescription.Reactive = new Fsr2.ResourceView(Fsr2ShaderIDs.UavAutoReactive);
+                _dispatchDescription.Reactive = new ResourceView(Fsr3ShaderIDs.UavAutoReactive);
             }
             
             _fsrContext.Dispatch(_dispatchDescription, cmd);
             
-            cmd.EndSample("FSR2");
+            cmd.EndSample("FSR3 Upscaler");
             
             _resetHistory = false;
         }
@@ -203,18 +203,18 @@ namespace UnityEngine.Rendering.PostProcessing
             _prevExposureSource = exposureSource;
             _prevDisplaySize = _displaySize;
             
-            // Initialize FSR2 context
-            Fsr2.InitializationFlags flags = 0;
-            if (context.camera.allowHDR) flags |= Fsr2.InitializationFlags.EnableHighDynamicRange;
-            if (enableFP16) flags |= Fsr2.InitializationFlags.EnableFP16Usage;
-            if (exposureSource == ExposureSource.Auto) flags |= Fsr2.InitializationFlags.EnableAutoExposure;
-            if (RuntimeUtilities.IsDynamicResolutionEnabled(context.camera)) flags |= Fsr2.InitializationFlags.EnableDynamicResolution;
+            // Initialize FSR3 Upscaler context
+            Fsr3Upscaler.InitializationFlags flags = 0;
+            if (context.camera.allowHDR) flags |= Fsr3Upscaler.InitializationFlags.EnableHighDynamicRange;
+            if (enableFP16) flags |= Fsr3Upscaler.InitializationFlags.EnableFP16Usage;
+            if (exposureSource == ExposureSource.Auto) flags |= Fsr3Upscaler.InitializationFlags.EnableAutoExposure;
+            if (RuntimeUtilities.IsDynamicResolutionEnabled(context.camera)) flags |= Fsr3Upscaler.InitializationFlags.EnableDynamicResolution;
 
             _callbacks = callbacksFactory(context);
-            _fsrContext = Fsr2.CreateContext(_displaySize, _maxRenderSize, _callbacks, flags);
+            _fsrContext = Fsr3Upscaler.CreateContext(_displaySize, _maxRenderSize, context.resources.computeShaders.superResolution, flags);
 
             // Apply a mipmap bias so that textures retain their sharpness
-            float biasOffset = Fsr2.GetMipmapBiasOffset(_maxRenderSize.x, _displaySize.x);
+            float biasOffset = Fsr3Upscaler.GetMipmapBiasOffset(_maxRenderSize.x, _displaySize.x);
             if (!float.IsNaN(biasOffset) && !float.IsInfinity(biasOffset))
             {
                 _callbacks.ApplyMipmapBias(biasOffset);
@@ -241,9 +241,9 @@ namespace UnityEngine.Rendering.PostProcessing
         {
             var scaledRenderSize = GetScaledRenderSize(camera);
             
-            // Perform custom jittering of the camera's projection matrix according to FSR2's recipe
-            int jitterPhaseCount = Fsr2.GetJitterPhaseCount(scaledRenderSize.x, _displaySize.x);
-            Fsr2.GetJitterOffset(out float jitterX, out float jitterY, Time.frameCount, jitterPhaseCount);
+            // Perform custom jittering of the camera's projection matrix according to FSR3's recipe
+            int jitterPhaseCount = Fsr3Upscaler.GetJitterPhaseCount(scaledRenderSize.x, _displaySize.x);
+            Fsr3Upscaler.GetJitterOffset(out float jitterX, out float jitterY, Time.frameCount, jitterPhaseCount);
             
             _dispatchDescription.JitterOffset = new Vector2(jitterX, jitterY);
 
@@ -262,22 +262,22 @@ namespace UnityEngine.Rendering.PostProcessing
         {
             var camera = context.camera;
             
-            // Set up the main FSR2 dispatch parameters
-            _dispatchDescription.Color = new Fsr2.ResourceView(context.source);
-            _dispatchDescription.Depth = new Fsr2.ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
-            _dispatchDescription.MotionVectors = new Fsr2.ResourceView(BuiltinRenderTextureType.MotionVectors);
-            _dispatchDescription.Exposure = Fsr2.ResourceView.Unassigned;
-            _dispatchDescription.Reactive = Fsr2.ResourceView.Unassigned;
-            _dispatchDescription.TransparencyAndComposition = Fsr2.ResourceView.Unassigned;
+            // Set up the main FSR3 Upscaler dispatch parameters
+            _dispatchDescription.Color = new ResourceView(context.source);
+            _dispatchDescription.Depth = new ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
+            _dispatchDescription.MotionVectors = new ResourceView(BuiltinRenderTextureType.MotionVectors);
+            _dispatchDescription.Exposure = ResourceView.Unassigned;
+            _dispatchDescription.Reactive = ResourceView.Unassigned;
+            _dispatchDescription.TransparencyAndComposition = ResourceView.Unassigned;
 
-            if (exposureSource == ExposureSource.Manual && exposure != null) _dispatchDescription.Exposure = new Fsr2.ResourceView(exposure);
-            if (exposureSource == ExposureSource.Unity) _dispatchDescription.Exposure = new Fsr2.ResourceView(context.autoExposureTexture);
-            if (reactiveMask != null) _dispatchDescription.Reactive = new Fsr2.ResourceView(reactiveMask);
-            if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = new Fsr2.ResourceView(transparencyAndCompositionMask);
+            if (exposureSource == ExposureSource.Manual && exposure != null) _dispatchDescription.Exposure = new ResourceView(exposure);
+            if (exposureSource == ExposureSource.Unity) _dispatchDescription.Exposure = new ResourceView(context.autoExposureTexture);
+            if (reactiveMask != null) _dispatchDescription.Reactive = new ResourceView(reactiveMask);
+            if (transparencyAndCompositionMask != null) _dispatchDescription.TransparencyAndComposition = new ResourceView(transparencyAndCompositionMask);
 
             var scaledRenderSize = GetScaledRenderSize(context.camera);
             
-            _dispatchDescription.Output = new Fsr2.ResourceView(context.destination);
+            _dispatchDescription.Output = new ResourceView(context.destination);
             _dispatchDescription.PreExposure = preExposure;
             _dispatchDescription.EnableSharpening = performSharpenPass;
             _dispatchDescription.Sharpness = sharpness;
@@ -296,7 +296,7 @@ namespace UnityEngine.Rendering.PostProcessing
             _dispatchDescription.EnableAutoReactive = autoGenerateTransparencyAndComposition;
             if (autoGenerateTransparencyAndComposition)
             {
-                _dispatchDescription.ColorOpaqueOnly = new Fsr2.ResourceView(colorOpaqueOnly);
+                _dispatchDescription.ColorOpaqueOnly = new ResourceView(colorOpaqueOnly);
                 _dispatchDescription.AutoTcThreshold = generateTransparencyAndCompositionParameters.autoTcThreshold;
                 _dispatchDescription.AutoTcScale = generateTransparencyAndCompositionParameters.autoTcScale;
                 _dispatchDescription.AutoReactiveScale = generateTransparencyAndCompositionParameters.autoReactiveScale;
@@ -305,7 +305,7 @@ namespace UnityEngine.Rendering.PostProcessing
 
             if (SystemInfo.usesReversedZBuffer)
             {
-                // Swap the near and far clip plane distances as FSR2 expects this when using inverted depth
+                // Swap the near and far clip plane distances as FSR3 expects this when using inverted depth
                 (_dispatchDescription.CameraNear, _dispatchDescription.CameraFar) = (_dispatchDescription.CameraFar, _dispatchDescription.CameraNear);
             }
         }
@@ -313,9 +313,9 @@ namespace UnityEngine.Rendering.PostProcessing
         private void SetupAutoReactiveDescription(PostProcessRenderContext context)
         {
             // Set up the parameters to auto-generate a reactive mask
-            _genReactiveDescription.ColorOpaqueOnly = new Fsr2.ResourceView(colorOpaqueOnly);
-            _genReactiveDescription.ColorPreUpscale = new Fsr2.ResourceView(context.source);
-            _genReactiveDescription.OutReactive = new Fsr2.ResourceView(Fsr2ShaderIDs.UavAutoReactive);
+            _genReactiveDescription.ColorOpaqueOnly = new ResourceView(colorOpaqueOnly);
+            _genReactiveDescription.ColorPreUpscale = new ResourceView(context.source);
+            _genReactiveDescription.OutReactive = new ResourceView(Fsr3ShaderIDs.UavAutoReactive);
             _genReactiveDescription.RenderSize = GetScaledRenderSize(context.camera);
             _genReactiveDescription.Scale = generateReactiveParameters.scale;
             _genReactiveDescription.CutoffThreshold = generateReactiveParameters.cutoffThreshold;
@@ -329,25 +329,6 @@ namespace UnityEngine.Rendering.PostProcessing
                 return _maxRenderSize;
 
             return new Vector2Int(Mathf.CeilToInt(_maxRenderSize.x * ScalableBufferManager.widthScaleFactor), Mathf.CeilToInt(_maxRenderSize.y * ScalableBufferManager.heightScaleFactor));
-        }
-
-        private class Callbacks : Fsr2CallbacksBase
-        {
-            private readonly PostProcessResources _resources;
-            
-            public Callbacks(PostProcessResources resources)
-            {
-                _resources = resources;
-            }
-            
-            public override ComputeShader LoadComputeShader(string name)
-            {
-                return _resources.computeShaders.FindComputeShader(name);
-            }
-
-            public override void UnloadComputeShader(ComputeShader shader)
-            {
-            }
         }
     }
 }

@@ -216,7 +216,7 @@ namespace UnityEngine.Rendering.PostProcessing
         public TemporalAntialiasing temporalAntialiasing { get; internal set; }
         
         /// <summary>
-        /// A reference to the FSR2 settings for the rendering layer.
+        /// A reference to the FSR3 Upscaler settings for the rendering layer.
         /// </summary>
         public SuperResolution superResolution { get; internal set; }
 

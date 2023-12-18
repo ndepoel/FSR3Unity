@@ -62,7 +62,7 @@ namespace UnityEditor.Rendering.PostProcessing
             new GUIContent("Fast Approximate Anti-aliasing (FXAA)"),
             new GUIContent("Subpixel Morphological Anti-aliasing (SMAA)"),
             new GUIContent("Temporal Anti-aliasing (TAA)"),
-            new GUIContent("FidelityFX Super Resolution 2 (FSR2)")
+            new GUIContent("FidelityFX Super Resolution 3 (FSR3) Upscaler")
         };
 
         enum ExportMode

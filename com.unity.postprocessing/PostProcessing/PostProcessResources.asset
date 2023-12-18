@@ -3,8 +3,9 @@
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
@@ -92,19 +93,15 @@ MonoBehaviour:
     bloom: {fileID: 4800000, guid: c1e1d3119c6fd4646aea0b4b74cacc1a, type: 3}
     copy: {fileID: 4800000, guid: cdbdb71de5f9c454b980f6d0e87f0afb, type: 3}
     copyStd: {fileID: 4800000, guid: 4bf4cff0d0bac3d43894e2e8839feb40, type: 3}
-    copyStdFromTexArray: {fileID: 4800000, guid: 02d2da9bc88d25c4d878c1ed4e0b3854,
-      type: 3}
-    copyStdFromDoubleWide: {fileID: 4800000, guid: e8ce9961912f3214586fe8709b9012c1,
-      type: 3}
+    copyStdFromTexArray: {fileID: 4800000, guid: 02d2da9bc88d25c4d878c1ed4e0b3854, type: 3}
+    copyStdFromDoubleWide: {fileID: 4800000, guid: e8ce9961912f3214586fe8709b9012c1, type: 3}
     discardAlpha: {fileID: 4800000, guid: 5ab0816423f0dfe45841cab3b05ec9ef, type: 3}
     depthOfField: {fileID: 4800000, guid: 0ef78d24e85a44f4da9d5b5eaa00e50b, type: 3}
     finalPass: {fileID: 4800000, guid: f75014305794b3948a3c6d5ccd550e05, type: 3}
     grainBaker: {fileID: 4800000, guid: 0d8afcb51cc9f0349a6d190da929b838, type: 3}
     motionBlur: {fileID: 4800000, guid: 2c459b89a7c8b1a4fbefe0d81341651c, type: 3}
-    temporalAntialiasing: {fileID: 4800000, guid: 51bcf79c50dc92e47ba87821b61100c3,
-      type: 3}
-    subpixelMorphologicalAntialiasing: {fileID: 4800000, guid: 81af42a93ade3dd46a9b583d4eec76d6,
-      type: 3}
+    temporalAntialiasing: {fileID: 4800000, guid: 51bcf79c50dc92e47ba87821b61100c3, type: 3}
+    subpixelMorphologicalAntialiasing: {fileID: 4800000, guid: 81af42a93ade3dd46a9b583d4eec76d6, type: 3}
     texture2dLerp: {fileID: 4800000, guid: 34a819c9e33402547a81619693adc8d5, type: 3}
     uber: {fileID: 4800000, guid: 382151503e2a43a4ebb7366d1632731d, type: 3}
     lut2DBaker: {fileID: 4800000, guid: 7ad194cbe7d006f4bace915156972026, type: 3}
@@ -116,8 +113,7 @@ MonoBehaviour:
     deferredFog: {fileID: 4800000, guid: 4117fce9491711c4094d33a048e36e73, type: 3}
     scalableAO: {fileID: 4800000, guid: d7640629310e79646af0f46eb55ae466, type: 3}
     multiScaleAO: {fileID: 4800000, guid: 67f9497810829eb4791ec19e95781e51, type: 3}
-    screenSpaceReflections: {fileID: 4800000, guid: f997a3dc9254c44459323cced085150c,
-      type: 3}
+    screenSpaceReflections: {fileID: 4800000, guid: f997a3dc9254c44459323cced085150c, type: 3}
   computeShaders:
     autoExposure: {fileID: 7200000, guid: 34845e0ca016b7448842e965db5890a5, type: 3}
     exposureHistogram: {fileID: 7200000, guid: 8c2fcbdf9bc58664f89917f7b9d79501, type: 3}
@@ -126,30 +122,17 @@ MonoBehaviour:
     gammaHistogram: {fileID: 7200000, guid: 18183ebfeeab97749b43e38b928604a7, type: 3}
     waveform: {fileID: 7200000, guid: 92c63830cd50c0b4fbb8233613839958, type: 3}
     vectorscope: {fileID: 7200000, guid: e1efca7c36fd01840aae0dd10378de5c, type: 3}
-    multiScaleAODownsample1: {fileID: 7200000, guid: 4c63bc487e6c29a4a99f85a6c47b292b,
-      type: 3}
-    multiScaleAODownsample2: {fileID: 7200000, guid: e4d3e4779e48a374f91d48d4c0aedb7b,
-      type: 3}
-    multiScaleAORender: {fileID: 7200000, guid: 34a460e8a2e66c243a9c12024e5a798d,
-      type: 3}
-    multiScaleAOUpsample: {fileID: 7200000, guid: 600d6212b59bb40409d19d750b5fd1e9,
-      type: 3}
-    gaussianDownsample: {fileID: 7200000, guid: 6dba4103d23a7904fbc49099355aff3e,
-      type: 3}
-    namedShaders:
-    - name: FSR2/ffx_fsr2_compute_luminance_pyramid_pass
-      shader: {fileID: 7200000, guid: 0894ebeefb6aa7d4680c71dffbda3fee, type: 3}
-    - name: FSR2/ffx_fsr2_reconstruct_previous_depth_pass
-      shader: {fileID: 7200000, guid: 6ef1b4c25874e334dad5ba3ac6345e32, type: 3}
-    - name: FSR2/ffx_fsr2_depth_clip_pass
-      shader: {fileID: 7200000, guid: 8026d9d8542eab6499c32d5d46beb2b6, type: 3}
-    - name: FSR2/ffx_fsr2_lock_pass
-      shader: {fileID: 7200000, guid: 3c96d72b39a840c428c901628dab92c0, type: 3}
-    - name: FSR2/ffx_fsr2_accumulate_pass
-      shader: {fileID: 7200000, guid: 702560780e923c84394c9b22ba460a9c, type: 3}
-    - name: FSR2/ffx_fsr2_rcas_pass
-      shader: {fileID: 7200000, guid: 5a82801f160ff6a4eb47db567216e592, type: 3}
-    - name: FSR2/ffx_fsr2_autogen_reactive_pass
-      shader: {fileID: 7200000, guid: d18fb8811ca4753469c439784546104e, type: 3}
-    - name: FSR2/ffx_fsr2_tcr_autogen_pass
-      shader: {fileID: 7200000, guid: b478fba0a6a87b44b8be7c35deb5f0dc, type: 3}
+    multiScaleAODownsample1: {fileID: 7200000, guid: 4c63bc487e6c29a4a99f85a6c47b292b, type: 3}
+    multiScaleAODownsample2: {fileID: 7200000, guid: e4d3e4779e48a374f91d48d4c0aedb7b, type: 3}
+    multiScaleAORender: {fileID: 7200000, guid: 34a460e8a2e66c243a9c12024e5a798d, type: 3}
+    multiScaleAOUpsample: {fileID: 7200000, guid: 600d6212b59bb40409d19d750b5fd1e9, type: 3}
+    gaussianDownsample: {fileID: 7200000, guid: 6dba4103d23a7904fbc49099355aff3e, type: 3}
+    superResolution:
+      computeLuminancePyramidPass: {fileID: 7200000, guid: d253be05abcdc80428503d3e4cce3a36, type: 3}
+      reconstructPreviousDepthPass: {fileID: 7200000, guid: 4f59e5b9179d74844ae06a30ae1e0629, type: 3}
+      depthClipPass: {fileID: 7200000, guid: 20e44016ed34b0d4b8de499d1b566c69, type: 3}
+      lockPass: {fileID: 7200000, guid: a135306e6d1857e43a86ef20db2a47fe, type: 3}
+      accumulatePass: {fileID: 7200000, guid: c9b45f0ae7673694ba57a4aadfe212e9, type: 3}
+      sharpenPass: {fileID: 7200000, guid: 7aaf5cfff022de2499e9b0412f947f6c, type: 3}
+      autoGenReactivePass: {fileID: 7200000, guid: 5716b91fdaa4e9e439df6b96a796fe6e, type: 3}
+      tcrAutoGenPass: {fileID: 7200000, guid: 75cdc6ef23f08ed498d4da511923fcea, type: 3}
