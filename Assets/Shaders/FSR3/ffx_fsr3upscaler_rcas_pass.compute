@@ -24,6 +24,8 @@
 #pragma multi_compile_local __ FFX_FSR3UPSCALER_OPTION_JITTERED_MOTION_VECTORS
 #pragma multi_compile_local __ FFX_FSR3UPSCALER_OPTION_INVERTED_DEPTH
 
+#pragma multi_compile_local __ UNITY_FSR3UPSCALER_HDRP
+
 #include "ffx_fsr3upscaler_unity_common.cginc"
 
 #include "shaders/ffx_fsr3upscaler_rcas_pass.hlsl"

@@ -207,7 +207,14 @@ namespace FidelityFX
             if (resource == null)
                 return;
             
+#if UNITY_EDITOR
+            if (Application.isPlaying && !UnityEditor.EditorApplication.isPaused)
+                UnityEngine.Object.Destroy(resource);
+            else
+                UnityEngine.Object.DestroyImmediate(resource);
+#else
             UnityEngine.Object.Destroy(resource);
+#endif
             resource = null;
         }
 

@@ -17,7 +17,6 @@ Focus of this project lies initially on making FSR3 Upscaler work with the tradi
   - [Built-in Render Pipeline](#built-in-render-pipeline)
   - [Post-Processing Stack V2](#post-processing-stack-v2)
   - [Callbacks](#callbacks)
-    - [Resource management](#resource-management)
     - [Mipmap biasing](#mipmap-biasing)
   - [Motion vectors](#motion-vectors)
   - [Reactive mask](#reactive-mask)
