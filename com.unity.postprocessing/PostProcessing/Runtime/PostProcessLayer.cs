@@ -741,7 +741,8 @@ namespace UnityEngine.Rendering.PostProcessing
             // Create a copy of the opaque-only color buffer for auto-reactive mask generation
             if (context.IsSuperResolutionActive() && (superResolution.autoGenerateReactiveMask || superResolution.autoGenerateTransparencyAndComposition))
             {
-                m_opaqueOnly = context.GetScreenSpaceTemporaryRT(colorFormat: sourceFormat);
+                Vector2Int scaledRenderSize = superResolution.GetScaledRenderSize(context.camera);
+                m_opaqueOnly = context.GetScreenSpaceTemporaryRT(colorFormat: sourceFormat, widthOverride: scaledRenderSize.x, heightOverride: scaledRenderSize.y);
                 m_LegacyCmdBufferOpaque.BuiltinBlit(cameraTarget, m_opaqueOnly);
             }
 

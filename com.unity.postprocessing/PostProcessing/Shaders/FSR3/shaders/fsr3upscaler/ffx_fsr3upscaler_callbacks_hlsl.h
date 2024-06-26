@@ -359,10 +359,10 @@ SamplerState s_LinearClamp : register(s1);
         Texture2D<FfxFloat32x2>                   r_auto_exposure                           : FFX_FSR3UPSCALER_DECLARE_SRV(FSR3UPSCALER_BIND_SRV_AUTO_EXPOSURE);
     #endif
     #if defined FSR3UPSCALER_BIND_SRV_REACTIVE_MASK
-        Texture2D<FfxFloat32>                     r_reactive_mask                           : FFX_FSR3UPSCALER_DECLARE_SRV(FSR3UPSCALER_BIND_SRV_REACTIVE_MASK);
+        UNITY_FSR3_TEX2D(FfxFloat32)              r_reactive_mask                           : FFX_FSR3UPSCALER_DECLARE_SRV(FSR3UPSCALER_BIND_SRV_REACTIVE_MASK);
     #endif 
     #if defined FSR3UPSCALER_BIND_SRV_TRANSPARENCY_AND_COMPOSITION_MASK
-        Texture2D<FfxFloat32>                     r_transparency_and_composition_mask       : FFX_FSR3UPSCALER_DECLARE_SRV(FSR3UPSCALER_BIND_SRV_TRANSPARENCY_AND_COMPOSITION_MASK);
+        UNITY_FSR3_TEX2D(FfxFloat32)              r_transparency_and_composition_mask       : FFX_FSR3UPSCALER_DECLARE_SRV(FSR3UPSCALER_BIND_SRV_TRANSPARENCY_AND_COMPOSITION_MASK);
     #endif
     #if defined FSR3UPSCALER_BIND_SRV_RECONSTRUCTED_PREV_NEAREST_DEPTH
         Texture2D<FfxUInt32>                      r_reconstructed_previous_nearest_depth    : FFX_FSR3UPSCALER_DECLARE_SRV(FSR3UPSCALER_BIND_SRV_RECONSTRUCTED_PREV_NEAREST_DEPTH);
@@ -511,14 +511,14 @@ FfxFloat32 SampleInputDepth(FfxFloat32x2 fUV)
 #if defined(FSR3UPSCALER_BIND_SRV_REACTIVE_MASK)
 FfxFloat32 LoadReactiveMask(FfxUInt32x2 iPxPos)
 {
-    return r_reactive_mask[iPxPos];
+    return r_reactive_mask[UNITY_FSR3_POS(iPxPos)];
 }
 #endif
 
 #if defined(FSR3UPSCALER_BIND_SRV_TRANSPARENCY_AND_COMPOSITION_MASK)
 FfxFloat32 LoadTransparencyAndCompositionMask(FfxUInt32x2 iPxPos)
 {
-    return r_transparency_and_composition_mask[iPxPos];
+    return r_transparency_and_composition_mask[UNITY_FSR3_POS(iPxPos)];
 }
 #endif
 

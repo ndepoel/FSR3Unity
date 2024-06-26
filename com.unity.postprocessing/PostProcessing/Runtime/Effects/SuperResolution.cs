@@ -323,7 +323,7 @@ namespace UnityEngine.Rendering.PostProcessing
             _genReactiveDescription.Flags = generateReactiveParameters.flags;
         }
 
-        private Vector2Int GetScaledRenderSize(Camera camera)
+        internal Vector2Int GetScaledRenderSize(Camera camera)
         {
             if (!RuntimeUtilities.IsDynamicResolutionEnabled(camera))
                 return _maxRenderSize;
