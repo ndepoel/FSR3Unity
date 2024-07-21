@@ -1,0 +1,12 @@
+{
+  "name": "fidelityfx.fsr",
+  "version": "1.0.0",
+  "displayName": "FidelityFX FSR",
+  "description": "FidelityFX Super Resolution 2/3 Upscaler core assets",
+  "unity": "2020.1",
+  "documentationUrl": "https://github.com/ndepoel/FSR2Unity",
+  "author": {
+    "name": "Nico de Poel",
+    "email": "ndepoel@gmail.com.com"
+  }
+}

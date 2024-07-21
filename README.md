@@ -1,14 +1,14 @@
-# FSR 3.0 Upscaler for Unity
+# FSR 3.1 Upscaler for Unity
 
-FidelityFX Super Resolution 3 (FSR3) Upscaler is an advanced image upscaling and temporal reconstruction technique developed by AMD and [released as open source](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/tree/release-FSR3-3.0.3) through the GPUOpen initiative. It provides both high-quality anti-aliasing and the ability for games to output at high resolutions while rendering at a lower internal resolution, improving performance.
+FidelityFX Super Resolution 3 (FSR3) Upscaler is an advanced image upscaling and temporal reconstruction technique developed by AMD and [released as open source](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK) through the GPUOpen initiative. It provides both high-quality anti-aliasing and the ability for games to output at high resolutions while rendering at a lower internal resolution, improving performance.
 
 This project aims to bring FSR3 upscaling to Unity as an alternative to Unity's existing FXAA, SMAA and TAA anti-aliasing solutions. Compared to Unity's TAA implementation, FSR3 Upscaler offers a sharper and more stable image, with a better sub-pixel detail resolve and better performance due to its reliance on upscaling.
 
-![Comparison](images/comparison.png)
+![Comparison](images/comparison-fsr3.1.png)
 
-Rather than attempting to integrate AMD's open source C++ libraries for FSR3, this project instead reimplements the C++ backend in C# while adapting FSR3's HLSL shader code to work within Unity. This allows for maximum compatibility with the platforms and graphics APIs that Unity supports, including ones that normally wouldn't be supported by FSR3.
+Rather than attempting to integrate AMD's native plugin libraries for FSR3, this project instead reimplements the C++ backend in C# using Unity's scripting APIs while adapting FSR3's HLSL shader code to work within Unity. This allows for maximum compatibility with the platforms and graphics APIs that Unity supports, including ones that normally wouldn't be supported by FSR3.
 
-Focus of this project lies initially on making FSR3 Upscaler work with the traditional Unity built-in render pipeline. However the core FSR3 Upscaler classes are render pipeline-agnostic, so there is every possibility for URP and HDRP to be supported as well in the future.
+Focus of this project lies initially on making FSR3 Upscaler work with the traditional Unity built-in render pipeline. However the core FSR3 Upscaler classes and shaders are render pipeline-agnostic, so there is every possibility for URP and HDRP integrations to be built as well.
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ Focus of this project lies initially on making FSR3 Upscaler work with the tradi
 
 FSR3 Upscaler for Unity requires Unity 2020.1 or higher. This version of Unity added support for the `multi_compile` keyword in compute shaders, which the FSR3 Upscaler implementation makes use of.
 
-Other than the above, requirements are no different from standard FSR3 Upscaler: it requires a GPU with compute shader support, typed UAV load and R16G16B16A16_UNORM support. In practice, almost every GPU made in the past decade will be able to run it.
+Other than the above, requirements are no different from the standard FSR3 Upscaler libraries: it requires a GPU with compute shader support, typed UAV load and R16G16B16A16_UNORM support. In practice, almost every GPU made in the past decade will be able to run it.
 
 Platforms tested and confirmed working:
 - Windows
@@ -171,6 +171,9 @@ Dynamic resolution works really well in combination with FSR3 Upscaler. Any run-
 - Texture mipmap bias adjustment is not working on MacOS Metal.  
   This causes blurry textures as the internal render resolution is lowered. This is a Unity issue of some sort.  
   Workaround: no known workaround yet.
+- Using FP16 mode on Xbox with GDK October 2023 or later causes random jittering artifacts.  
+  This seems to be a shader compilation issue introduced by this GDK update.  
+  Workaround: disable FP16 on Xbox consoles.
 
 ## Details on implementation
 

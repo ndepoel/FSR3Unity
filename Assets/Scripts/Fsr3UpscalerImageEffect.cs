@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Nico de Poel
+// Copyright (c) 2024 Nico de Poel
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using FidelityFX.FSR3;
 
 namespace FidelityFX
 {
@@ -53,6 +54,10 @@ namespace FidelityFX
         public float preExposure = 1.0f;
         [Tooltip("Optional 1x1 texture containing the exposure value for the current frame.")]
         public Texture exposure = null;
+
+        [Header("Debug")]
+        [Tooltip("Enable a debug view to analyze the upscaling process.")]
+        public bool enableDebugView = false;
 
         [Header("Reactivity, Transparency & Composition")] 
         [Tooltip("Optional texture to control the influence of the current frame on the reconstructed output. If unset, either an auto-generated or a default cleared reactive mask will be used.")]
@@ -326,12 +331,14 @@ namespace FidelityFX
             _dispatchDescription.MotionVectorScale.x = -scaledRenderSize.x;
             _dispatchDescription.MotionVectorScale.y = -scaledRenderSize.y;
             _dispatchDescription.RenderSize = scaledRenderSize;
+            _dispatchDescription.UpscaleSize = _displaySize;
             _dispatchDescription.FrameTimeDelta = Time.unscaledDeltaTime;
             _dispatchDescription.CameraNear = _renderCamera.nearClipPlane;
             _dispatchDescription.CameraFar = _renderCamera.farClipPlane;
             _dispatchDescription.CameraFovAngleVertical = _renderCamera.fieldOfView * Mathf.Deg2Rad;
             _dispatchDescription.ViewSpaceToMetersFactor = 1.0f; // 1 unit is 1 meter in Unity
             _dispatchDescription.Reset = _resetHistory;
+            _dispatchDescription.Flags = enableDebugView ? Fsr3Upscaler.DispatchFlags.DrawDebugView : 0;
             _resetHistory = false;
 
             // Set up the parameters for the optional experimental auto-TCR feature
@@ -389,9 +396,6 @@ namespace FidelityFX
             // Restore the camera's viewport rect so we can output at full resolution
             _renderCamera.rect = _originalRect;
             _renderCamera.ResetProjectionMatrix();
-
-            // Update the input resource descriptions
-            _dispatchDescription.InputResourceSize = new Vector2Int(src.width, src.height);
 
             _dispatchCommandBuffer.Clear();
 

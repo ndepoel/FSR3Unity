@@ -40,13 +40,13 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.postprocessing": {
-      "version": "3.2.2",
+      "version": "file:com.unity.postprocessing",
       "depth": 0,
-      "source": "registry",
+      "source": "embedded",
       "dependencies": {
-        "com.unity.modules.physics": "1.0.0"
-      },
-      "url": "https://packages.unity.com"
+        "com.unity.modules.physics": "1.0.0",
+        "fidelityfx.fsr": "1.0.0"
+      }
     },
     "com.unity.test-framework": {
       "version": "1.1.31",
@@ -98,6 +98,12 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       },
       "url": "https://packages.unity.com"
+    },
+    "fidelityfx.fsr": {
+      "version": "file:fidelityfx.fsr",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.unity.modules.ai": {
       "version": "1.0.0",

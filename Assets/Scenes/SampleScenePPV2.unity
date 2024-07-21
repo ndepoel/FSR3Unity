@@ -228,10 +228,8 @@ GameObject:
   - component: {fileID: 963194228}
   - component: {fileID: 963194227}
   - component: {fileID: 963194226}
-  - component: {fileID: 963194234}
   - component: {fileID: 963194232}
   - component: {fileID: 963194233}
-  - component: {fileID: 963194229}
   m_Layer: 6
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -305,40 +303,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 9.931, y: 109.145, z: 0}
---- !u!114 &963194229
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 963194225}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 955cb66a9ecc20441a7e32934c9b4690, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  qualityMode: 2
-  performSharpenPass: 1
-  sharpness: 0.8
-  enableFP16: 0
-  enableAutoExposure: 1
-  preExposure: 1
-  exposure: {fileID: 0}
-  reactiveMask: {fileID: 0}
-  transparencyAndCompositionMask: {fileID: 0}
-  autoGenerateReactiveMask: 1
-  generateReactiveParameters:
-    scale: 0.5
-    cutoffThreshold: 0.2
-    binaryValue: 0.9
-    flags: 13
-  autoGenerateTransparencyAndComposition: 0
-  generateTransparencyAndCompositionParameters:
-    autoTcThreshold: 0.05
-    autoTcScale: 1
-    autoReactiveScale: 5
-    autoReactiveMax: 0.9
-  assets: {fileID: 11400000, guid: 4151befafd86e8740ab09463b4f1bdbb, type: 2}
 --- !u!114 &963194232
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -357,12 +321,35 @@ MonoBehaviour:
     m_Bits: 64
   stopNaNPropagation: 0
   finalBlitToCameraTarget: 0
-  antialiasingMode: 0
+  antialiasingMode: 4
   temporalAntialiasing:
     jitterSpread: 0.75
     sharpness: 0.25
     stationaryBlending: 0.95
     motionBlending: 0.85
+  superResolution:
+    qualityMode: 2
+    performSharpenPass: 1
+    sharpness: 0.8
+    enableFP16: 0
+    exposureSource: 1
+    preExposure: 1
+    exposure: {fileID: 0}
+    enableDebugView: 0
+    reactiveMask: {fileID: 0}
+    transparencyAndCompositionMask: {fileID: 0}
+    autoGenerateReactiveMask: 1
+    generateReactiveParameters:
+      scale: 0.5
+      cutoffThreshold: 0.2
+      binaryValue: 0.9
+      flags: 13
+    autoGenerateTransparencyAndComposition: 0
+    generateTransparencyAndCompositionParameters:
+      autoTcThreshold: 0.05
+      autoTcScale: 1
+      autoReactiveScale: 5
+      autoReactiveMax: 0.9
   subpixelMorphologicalAntialiasing:
     quality: 2
   fastApproximateAntialiasing:
@@ -397,6 +384,7 @@ MonoBehaviour:
   m_ShowCustomSorter: 0
   breakBeforeColorGrading: 0
   m_BeforeTransparentBundles: []
+  m_BeforeUpscalingBundles: []
   m_BeforeStackBundles: []
   m_AfterStackBundles: []
 --- !u!114 &963194233
@@ -416,18 +404,6 @@ MonoBehaviour:
   blendDistance: 0
   weight: 1
   priority: 1
---- !u!114 &963194234
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 963194225}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 56db3edb28006274aab71644ef3e4f35, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &1313173313
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -20,6 +20,7 @@
 
 using System.Collections;
 using UnityEngine;
+using FidelityFX.FSR3;
 
 namespace FidelityFX
 {
