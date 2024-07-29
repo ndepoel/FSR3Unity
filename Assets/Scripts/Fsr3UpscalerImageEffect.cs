@@ -312,7 +312,7 @@ namespace FidelityFX
         {
             // Set up the main FSR3 Upscaler dispatch parameters
             _dispatchDescription.Color = new ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Color);
-            _dispatchDescription.Depth = new ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
+            _dispatchDescription.Depth = new ResourceView(GetDepthTexture(), RenderTextureSubElement.Depth);
             _dispatchDescription.MotionVectors = new ResourceView(BuiltinRenderTextureType.MotionVectors);
             _dispatchDescription.Exposure = ResourceView.Unassigned;
             _dispatchDescription.Reactive = ResourceView.Unassigned;
@@ -417,7 +417,7 @@ namespace FidelityFX
             if (_originalRenderTarget != null)
             {
                 // Output to the camera target texture, passing through depth as well
-                _dispatchCommandBuffer.SetGlobalTexture("_DepthTex", BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
+                _dispatchCommandBuffer.SetGlobalTexture("_DepthTex", GetDepthTexture(), RenderTextureSubElement.Depth);
                 _dispatchCommandBuffer.Blit(Fsr3ShaderIDs.UavUpscaledOutput, _originalRenderTarget, _copyWithDepthMaterial);
             }
             else
@@ -447,6 +447,12 @@ namespace FidelityFX
                 return _originalRenderTarget.format;
 
             return _renderCamera.allowHDR ? RenderTextureFormat.DefaultHDR : RenderTextureFormat.Default;
+        }
+        
+        private BuiltinRenderTextureType GetDepthTexture()
+        {
+            RenderingPath renderingPath = _renderCamera.renderingPath;
+            return renderingPath == RenderingPath.Forward || renderingPath == RenderingPath.VertexLit ? BuiltinRenderTextureType.Depth : BuiltinRenderTextureType.CameraTarget;
         }
 
         private Vector2Int GetDisplaySize()

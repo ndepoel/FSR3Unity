@@ -268,7 +268,7 @@ namespace UnityEngine.Rendering.PostProcessing
             
             // Set up the main FSR3 Upscaler dispatch parameters
             _dispatchDescription.Color = new ResourceView(context.source);
-            _dispatchDescription.Depth = new ResourceView(BuiltinRenderTextureType.CameraTarget, RenderTextureSubElement.Depth);
+            _dispatchDescription.Depth = new ResourceView(GetDepthTexture(context.camera), RenderTextureSubElement.Depth);
             _dispatchDescription.MotionVectors = new ResourceView(BuiltinRenderTextureType.MotionVectors);
             _dispatchDescription.Exposure = ResourceView.Unassigned;
             _dispatchDescription.Reactive = ResourceView.Unassigned;
@@ -334,6 +334,12 @@ namespace UnityEngine.Rendering.PostProcessing
                 return _maxRenderSize;
 
             return new Vector2Int(Mathf.CeilToInt(_maxRenderSize.x * ScalableBufferManager.widthScaleFactor), Mathf.CeilToInt(_maxRenderSize.y * ScalableBufferManager.heightScaleFactor));
+        }
+
+        private static BuiltinRenderTextureType GetDepthTexture(Camera cam)
+        {
+            RenderingPath renderingPath = cam.renderingPath;
+            return renderingPath == RenderingPath.Forward || renderingPath == RenderingPath.VertexLit ? BuiltinRenderTextureType.Depth : BuiltinRenderTextureType.CameraTarget;
         }
     }
 }
