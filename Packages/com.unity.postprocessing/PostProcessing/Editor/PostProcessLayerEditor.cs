@@ -33,7 +33,6 @@ namespace UnityEditor.Rendering.PostProcessing
         SerializedProperty m_FsrQualityMode;
         SerializedProperty m_FsrPerformSharpen;
         SerializedProperty m_FsrSharpness;
-        SerializedProperty m_FsrEnableFP16;
         SerializedProperty m_FsrExposureSource;
         SerializedProperty m_FsrExposureTexture;
         SerializedProperty m_FsrPreExposure;
@@ -93,7 +92,6 @@ namespace UnityEditor.Rendering.PostProcessing
             m_FsrQualityMode = FindProperty(x => x.superResolution.qualityMode);
             m_FsrPerformSharpen = FindProperty(x => x.superResolution.performSharpenPass);
             m_FsrSharpness = FindProperty(x => x.superResolution.sharpness);
-            m_FsrEnableFP16 = FindProperty(x => x.superResolution.enableFP16);
             m_FsrExposureSource = FindProperty(x => x.superResolution.exposureSource);
             m_FsrExposureTexture = FindProperty(x => x.superResolution.exposure);
             m_FsrPreExposure = FindProperty(x => x.superResolution.preExposure);
@@ -229,7 +227,6 @@ namespace UnityEditor.Rendering.PostProcessing
                     EditorGUILayout.PropertyField(m_FsrQualityMode);
                     EditorGUILayout.PropertyField(m_FsrPerformSharpen);
                     EditorGUILayout.PropertyField(m_FsrSharpness);
-                    EditorGUILayout.PropertyField(m_FsrEnableFP16);
                     EditorGUILayout.PropertyField(m_FsrExposureSource);
                     if (m_FsrExposureSource.intValue == (int)SuperResolution.ExposureSource.Manual) EditorGUILayout.PropertyField(m_FsrExposureTexture);
                     EditorGUILayout.PropertyField(m_FsrPreExposure);

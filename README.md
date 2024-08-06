@@ -174,6 +174,9 @@ Dynamic resolution works really well in combination with FSR3 Upscaler. Any run-
 - Using FP16 mode on Xbox with GDK October 2023 or later causes random jittering artifacts.  
   This seems to be a shader compilation issue introduced by this GDK update.  
   Workaround: disable FP16 on Xbox consoles.
+- Using FP16 mode in D3D11 on certain older graphics cards can cause GPU driver crashes.  
+  There appears to be an issue with how Unity compiles the shader code from the FP16 code path.  
+  Workaround: disable FP16 mode.
 
 ## Details on implementation
 

@@ -42,9 +42,6 @@ namespace UnityEngine.Rendering.PostProcessing
         [Tooltip("Strength of the sharpening effect.")]
         [Range(0, 1)] public float sharpness = 0.8f;
         
-        [Tooltip("Allow the use of half precision compute operations, potentially improving performance if the platform supports it.")]
-        public bool enableFP16 = false;
-        
         [Tooltip("Choose where to get the exposure value from. Use auto-exposure from either FSR3 or Unity, provide a manual exposure texture, or use a default value.")]
         public ExposureSource exposureSource = ExposureSource.Auto;
         [Tooltip("Value by which the input signal will be divided, to get back to the original signal produced by the game.")]
@@ -210,7 +207,6 @@ namespace UnityEngine.Rendering.PostProcessing
             // Initialize FSR3 Upscaler context
             Fsr3Upscaler.InitializationFlags flags = 0;
             if (context.camera.allowHDR) flags |= Fsr3Upscaler.InitializationFlags.EnableHighDynamicRange;
-            if (enableFP16) flags |= Fsr3Upscaler.InitializationFlags.EnableFP16Usage;
             if (exposureSource == ExposureSource.Auto) flags |= Fsr3Upscaler.InitializationFlags.EnableAutoExposure;
             if (RuntimeUtilities.IsDynamicResolutionEnabled(context.camera)) flags |= Fsr3Upscaler.InitializationFlags.EnableDynamicResolution;
 

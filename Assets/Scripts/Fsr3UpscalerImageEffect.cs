@@ -43,9 +43,6 @@ namespace FidelityFX
         public bool performSharpenPass = true;
         [Tooltip("Strength of the sharpening effect.")]
         [Range(0, 1)] public float sharpness = 0.8f;
-        
-        [Tooltip("Allow the use of half precision compute operations, potentially improving performance if the platform supports it.")]
-        public bool enableFP16 = false;
 
         [Header("Exposure")]
         [Tooltip("Allow an exposure value to be computed internally. When set to false, either the provided exposure texture or a default exposure value will be used.")]
@@ -193,7 +190,6 @@ namespace FidelityFX
             // Initialize FSR3 Upscaler context
             Fsr3Upscaler.InitializationFlags flags = 0;
             if (_renderCamera.allowHDR) flags |= Fsr3Upscaler.InitializationFlags.EnableHighDynamicRange;
-            if (enableFP16) flags |= Fsr3Upscaler.InitializationFlags.EnableFP16Usage;
             if (enableAutoExposure) flags |= Fsr3Upscaler.InitializationFlags.EnableAutoExposure;
             if (UsingDynamicResolution()) flags |= Fsr3Upscaler.InitializationFlags.EnableDynamicResolution;
 
