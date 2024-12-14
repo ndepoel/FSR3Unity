@@ -1,4 +1,5 @@
 using System;
+using FidelityFX.FSR2;
 using FidelityFX.FSR3;
 
 namespace UnityEngine.Rendering.PostProcessing
@@ -215,9 +216,14 @@ namespace UnityEngine.Rendering.PostProcessing
             public ComputeShader gaussianDownsample;
 
             /// <summary>
+            /// Compute shaders used by the FidelityFX Super Resolution 2 (FSR2) Upscaler.
+            /// </summary>
+            public Fsr2Shaders fsr2Upscaler;
+            
+            /// <summary>
             /// Compute shaders used by the FidelityFX Super Resolution 3 (FSR3) Upscaler.
             /// </summary>
-            public Fsr3UpscalerShaders superResolution;
+            public Fsr3UpscalerShaders fsr3Upscaler;
             
             /// <summary>
             /// Returns a copy of this class and its content.

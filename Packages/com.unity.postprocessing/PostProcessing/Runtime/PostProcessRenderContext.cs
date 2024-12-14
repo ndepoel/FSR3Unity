@@ -218,7 +218,7 @@ namespace UnityEngine.Rendering.PostProcessing
         /// <summary>
         /// A reference to the FSR3 Upscaler settings for the rendering layer.
         /// </summary>
-        public SuperResolution superResolution { get; internal set; }
+        public Upscaling upscaling { get; internal set; }
 
         // Internal values used for builtin effects
         // Beware, these may not have been set before a specific builtin effect has been executed
@@ -290,10 +290,10 @@ namespace UnityEngine.Rendering.PostProcessing
 
         public bool IsSuperResolutionActive()
         {
-            return antialiasing == PostProcessLayer.Antialiasing.SuperResolution
+            return antialiasing == PostProcessLayer.Antialiasing.AdvancedUpscaling
                && Application.isPlaying
                && !isSceneView
-               && superResolution.IsSupported();
+               && upscaling.IsSupported();
         }
 
         /// <summary>

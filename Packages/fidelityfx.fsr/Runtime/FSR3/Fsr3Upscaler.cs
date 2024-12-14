@@ -200,6 +200,7 @@ namespace FidelityFX.FSR3
             public float CameraFar;
             public float CameraFovAngleVertical;
             public float ViewSpaceToMetersFactor;
+            public float VelocityFactor = 1.0f;
             public DispatchFlags Flags;
             public bool UseTextureArrays;   // Enable texture array bindings, primarily used for HDRP and XR
             
@@ -265,6 +266,8 @@ namespace FidelityFX.FSR3
             public float deltaPreExposure;
             public float viewSpaceToMetersFactor;
             public float frameIndex;
+
+            public float velocityFactor;
         }
         
         [Serializable, StructLayout(LayoutKind.Sequential)]

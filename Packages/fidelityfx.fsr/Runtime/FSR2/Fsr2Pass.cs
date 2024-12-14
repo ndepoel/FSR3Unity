@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -42,7 +43,7 @@ namespace FidelityFX.FSR2
         protected ComputeShader ComputeShader;
         protected int KernelIndex;
         
-        protected CustomSampler Sampler;
+        private CustomSampler _sampler;
         
         protected Fsr2Pass(Fsr2.ContextDescription contextDescription, Fsr2Resources resources, ComputeBuffer constants)
         {
@@ -57,9 +58,9 @@ namespace FidelityFX.FSR2
         
         public void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
-            commandBuffer.BeginSample(Sampler);
+            BeginSample(commandBuffer);
             DoScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchX, dispatchY);
-            commandBuffer.EndSample(Sampler);
+            EndSample(commandBuffer);
         }
 
         protected abstract void DoScheduleDispatch(CommandBuffer commandBuffer, Fsr2.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY);
@@ -78,7 +79,7 @@ namespace FidelityFX.FSR2
 
             ComputeShader = shader;
             KernelIndex = ComputeShader.FindKernel("CS");
-            Sampler = CustomSampler.Create(passName);
+            _sampler = CustomSampler.Create(passName);
 
             bool useLut = false;
 #if UNITY_2022_1_OR_NEWER   // This will also work in 2020.3.43+ and 2021.3.14+ 
@@ -95,6 +96,18 @@ namespace FidelityFX.FSR2
             if ((flags & Fsr2.InitializationFlags.EnableDepthInverted) != 0) ComputeShader.EnableKeyword("FFX_FSR2_OPTION_INVERTED_DEPTH");
             if (useLut) ComputeShader.EnableKeyword("FFX_FSR2_OPTION_REPROJECT_USE_LANCZOS_TYPE");
             if ((flags & Fsr2.InitializationFlags.EnableFP16Usage) != 0) ComputeShader.EnableKeyword("FFX_HALF");
+        }
+        
+        [Conditional("ENABLE_PROFILER")]
+        protected void BeginSample(CommandBuffer cmd)
+        {
+            cmd.BeginSample(_sampler);
+        }
+
+        [Conditional("ENABLE_PROFILER")]
+        protected void EndSample(CommandBuffer cmd)
+        {
+            cmd.EndSample(_sampler);
         }
     }
 
@@ -320,7 +333,7 @@ namespace FidelityFX.FSR2
 
         public void ScheduleDispatch(CommandBuffer commandBuffer, Fsr2.GenerateReactiveDescription dispatchParams, int dispatchX, int dispatchY)
         {
-            commandBuffer.BeginSample(Sampler);
+            BeginSample(commandBuffer);
             
             ref var opaqueOnly = ref dispatchParams.ColorOpaqueOnly;
             ref var color = ref dispatchParams.ColorPreUpscale;
@@ -334,7 +347,7 @@ namespace FidelityFX.FSR2
             
             commandBuffer.DispatchCompute(ComputeShader, KernelIndex, dispatchX, dispatchY, 1);
             
-            commandBuffer.EndSample(Sampler);
+            EndSample(commandBuffer);
         }
     }
 

@@ -205,7 +205,7 @@ namespace UnityEngine.Rendering.PostProcessing
             }
             else if (context.IsSuperResolutionActive())
             {
-                var jitter = context.superResolution.jitter;
+                var jitter = context.upscaling.Jitter;
                 sheet.properties.SetVector(ShaderIDs.TaaParams, new Vector3(jitter.x, jitter.y, m_ResetHistory ? 0f : 0.85f));
             }
 

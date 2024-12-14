@@ -127,7 +127,16 @@ MonoBehaviour:
     multiScaleAORender: {fileID: 7200000, guid: 34a460e8a2e66c243a9c12024e5a798d, type: 3}
     multiScaleAOUpsample: {fileID: 7200000, guid: 600d6212b59bb40409d19d750b5fd1e9, type: 3}
     gaussianDownsample: {fileID: 7200000, guid: 6dba4103d23a7904fbc49099355aff3e, type: 3}
-    superResolution:
+    fsr2Upscaler:
+      computeLuminancePyramidPass: {fileID: 7200000, guid: 04c3480675e29a340808141e68d4cc8b, type: 3}
+      reconstructPreviousDepthPass: {fileID: 7200000, guid: 5060dfafe45aa67459629186ceb7464e, type: 3}
+      depthClipPass: {fileID: 7200000, guid: b207de122e2c4b844b89dcd7c5c77c80, type: 3}
+      lockPass: {fileID: 7200000, guid: 20b7864a7e7258946aaf0f1996febad3, type: 3}
+      accumulatePass: {fileID: 7200000, guid: 7e791d69a5be98247a93b63897bc64df, type: 3}
+      sharpenPass: {fileID: 7200000, guid: 40815651f0f5d994cb73da9816a7ff9b, type: 3}
+      autoGenReactivePass: {fileID: 7200000, guid: 67ee1b32ca5e4234db9f06984c783dee, type: 3}
+      tcrAutoGenPass: {fileID: 7200000, guid: f8b1c27fb6a544b43b38903592240500, type: 3}
+    fsr3Upscaler:
       prepareInputsPass: {fileID: 7200000, guid: 4f59e5b9179d74844ae06a30ae1e0629, type: 3}
       lumaPyramidPass: {fileID: 7200000, guid: d253be05abcdc80428503d3e4cce3a36, type: 3}
       shadingChangePyramidPass: {fileID: 7200000, guid: 251e663738905fa4d8817001682d802f, type: 3}

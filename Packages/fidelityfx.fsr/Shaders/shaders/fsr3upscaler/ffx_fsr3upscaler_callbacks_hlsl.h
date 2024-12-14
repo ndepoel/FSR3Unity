@@ -75,6 +75,8 @@ cbuffer cbFSR3Upscaler : FFX_FSR3UPSCALER_DECLARE_CB(FSR3UPSCALER_BIND_CB_FSR3UP
     FfxFloat32    fDeltaPreExposure;
     FfxFloat32    fViewSpaceToMetersFactor;
     FfxFloat32    fFrameIndex;
+
+    FfxFloat32    fVelocityFactor;
 };
 
 #define FFX_FSR3UPSCALER_CONSTANT_BUFFER_1_SIZE (sizeof(cbFSR3Upscaler) / 4)  // Number of 32-bit values. This must be kept in sync with the cbFSR3Upscaler size.
@@ -168,6 +170,11 @@ FfxFloat32 ViewSpaceToMetersFactor()
 FfxFloat32 FrameIndex()
 {
     return fFrameIndex;
+}
+
+FfxFloat32 VelocityFactor()
+{
+    return fVelocityFactor;
 }
 
 #endif // #if defined(FSR3UPSCALER_BIND_CB_FSR3UPSCALER)
@@ -788,9 +795,15 @@ FfxFloat32 Exposure()
 {
     FfxFloat32 exposure = r_input_exposure[FfxUInt32x2(0, 0)].x;
 
+#if defined(__XBOX_SCARLETT)
+    if (exposure < 0.000030517578/** 2^-15 */) {
+        exposure = 1.0f;
+    }
+#else
     if (exposure == 0.0f) {
         exposure = 1.0f;
     }
+#endif // #if defined(__XBOX_SCARLETT)
 
     return exposure;
 }
@@ -916,14 +929,18 @@ FfxFloat32x4 FrameInfo()
     defined(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_2)    && \
     defined(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_3)    && \
     defined(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_4)    && \
-    defined(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_5)
+    (defined(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_5) || defined(SHADER_API_GLCORE))
 
 RWTexture2D<FfxFloat32x2>                   rw_spd_mip0   : FFX_DECLARE_UAV(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_0);
 RWTexture2D<FfxFloat32x2>                   rw_spd_mip1   : FFX_DECLARE_UAV(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_1);
 RWTexture2D<FfxFloat32x2>                   rw_spd_mip2   : FFX_DECLARE_UAV(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_2);
 RWTexture2D<FfxFloat32x2>                   rw_spd_mip3   : FFX_DECLARE_UAV(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_3);
+#ifdef SHADER_API_GLCORE
+globallycoherent RWTexture2D<FfxFloat32x2>  rw_spd_mip4   : FFX_DECLARE_UAV(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_4);
+#else
 RWTexture2D<FfxFloat32x2>                   rw_spd_mip4   : FFX_DECLARE_UAV(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_4);
 globallycoherent RWTexture2D<FfxFloat32x2>  rw_spd_mip5   : FFX_DECLARE_UAV(FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_5);
+#endif
 
 FfxFloat32x2 RWLoadPyramid(FFX_PARAMETER_IN FfxInt32x2 iPxPos, FFX_PARAMETER_IN FfxUInt32 index)
 {
@@ -937,7 +954,9 @@ FfxFloat32x2 RWLoadPyramid(FFX_PARAMETER_IN FfxInt32x2 iPxPos, FFX_PARAMETER_IN 
     LOAD(2);
     LOAD(3);
     LOAD(4);
+#ifndef SHADER_API_GLCORE
     LOAD(5);
+#endif
 
     return 0;
 
@@ -957,7 +976,9 @@ void StorePyramid(FFX_PARAMETER_IN FfxInt32x2 iPxPos, FFX_PARAMETER_IN FfxFloat3
     STORE(2);
     STORE(3);
     STORE(4);
+#ifndef SHADER_API_GLCORE
     STORE(5);
+#endif
 
 #undef STORE
 }

@@ -96,6 +96,7 @@ namespace FidelityFX.FSR3
             _resourceFrameIndex = 0;
             
             UpscalerConsts.maxUpscaleSize = _contextDescription.MaxUpscaleSize;
+            UpscalerConsts.velocityFactor = 1.0f;
             
             _resources.Create(_contextDescription);
             CreatePasses();
@@ -232,7 +233,7 @@ namespace FidelityFX.FSR3
                 
                 // Auto exposure always used to track luma changes in locking logic
                 commandBuffer.SetRenderTarget(_resources.FrameInfo);
-                commandBuffer.ClearRenderTarget(false, true, new Color(0f, 1e8f, 0f, 0f));
+                commandBuffer.ClearRenderTarget(false, true, new Color(0f, 1f, 0f, 0f));
 
                 // Reset atomic counter to 0
                 commandBuffer.SetRenderTarget(_resources.SpdAtomicCounter);
@@ -407,6 +408,8 @@ namespace FidelityFX.FSR3
                 constants.frameIndex = 0;
             else
                 constants.frameIndex += 1.0f;
+
+            constants.velocityFactor = dispatchParams.VelocityFactor;
         }
         
         private Vector4 SetupDeviceDepthToViewSpaceDepthParams(Fsr3Upscaler.DispatchDescription dispatchParams)

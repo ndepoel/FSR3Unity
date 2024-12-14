@@ -32,7 +32,9 @@
 #define FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_2                      3
 #define FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_3                      4
 #define FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_4                      5
+#ifndef SHADER_API_GLCORE
 #define FSR3UPSCALER_BIND_UAV_SPD_MIPS_LEVEL_5                      6
+#endif
 
 
 #define FSR3UPSCALER_BIND_CB_FSR3UPSCALER                           0

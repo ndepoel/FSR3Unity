@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db26e15a33db6ab42a38daab0ba2712f, type: 3}
+  m_Name: FSR2 Assets
+  m_EditorClassIdentifier: 
+  shaders:
+    computeLuminancePyramidPass: {fileID: 7200000, guid: 04c3480675e29a340808141e68d4cc8b, type: 3}
+    reconstructPreviousDepthPass: {fileID: 7200000, guid: 5060dfafe45aa67459629186ceb7464e, type: 3}
+    depthClipPass: {fileID: 7200000, guid: b207de122e2c4b844b89dcd7c5c77c80, type: 3}
+    lockPass: {fileID: 7200000, guid: 20b7864a7e7258946aaf0f1996febad3, type: 3}
+    accumulatePass: {fileID: 7200000, guid: 7e791d69a5be98247a93b63897bc64df, type: 3}
+    sharpenPass: {fileID: 7200000, guid: 40815651f0f5d994cb73da9816a7ff9b, type: 3}
+    autoGenReactivePass: {fileID: 7200000, guid: 67ee1b32ca5e4234db9f06984c783dee, type: 3}
+    tcrAutoGenPass: {fileID: 7200000, guid: f8b1c27fb6a544b43b38903592240500, type: 3}

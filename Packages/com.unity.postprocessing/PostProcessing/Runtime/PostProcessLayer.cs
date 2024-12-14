@@ -53,7 +53,7 @@ namespace UnityEngine.Rendering.PostProcessing
             /// <summary>
             /// FidelityFX Super Resolution 3 (FSR3) Upscaler.
             /// </summary>
-            SuperResolution,
+            AdvancedUpscaling,
         }
 
         /// <summary>
@@ -97,9 +97,9 @@ namespace UnityEngine.Rendering.PostProcessing
         public TemporalAntialiasing temporalAntialiasing;
 
         /// <summary>
-        /// FSR3 upscaling & anti-aliasing settings for this camera.
+        /// Advanced upscaling & anti-aliasing settings for this camera.
         /// </summary>
-        public SuperResolution superResolution;
+        public Upscaling superResolution;
 
         /// <summary>
         /// Subpixel Morphological Anti-aliasing settings for this camera.
@@ -635,7 +635,7 @@ namespace UnityEngine.Rendering.PostProcessing
             if (context.IsSuperResolutionActive())
             {
                 superResolution.ConfigureCameraViewport(context);
-                context.SetRenderSize(superResolution.renderSize);
+                context.SetRenderSize(superResolution.MaxRenderSize);
             }
             else
             {
@@ -775,7 +775,7 @@ namespace UnityEngine.Rendering.PostProcessing
 
             if (!finalBlitToCameraTarget && m_CurrentContext.IsSuperResolutionActive())
             {
-                var displaySize = superResolution.displaySize;
+                var displaySize = superResolution.UpscaleSize;
                 m_upscaledOutput = context.GetScreenSpaceTemporaryRT(widthOverride: displaySize.x, heightOverride: displaySize.y);
                 context.destination = m_upscaledOutput;
             }
@@ -1019,7 +1019,7 @@ namespace UnityEngine.Rendering.PostProcessing
             context.debugLayer = debugLayer;
             context.antialiasing = antialiasingMode;
             context.temporalAntialiasing = temporalAntialiasing;
-            context.superResolution = superResolution;
+            context.upscaling = superResolution;
             context.logHistogram = m_LogHistogram;
 
 #if UNITY_2018_2_OR_NEWER
@@ -1197,15 +1197,15 @@ namespace UnityEngine.Rendering.PostProcessing
                     superResolution.ConfigureJitteredProjectionMatrix(context);
                     
                     // Set the upscaler's output to full display resolution, as well as for all following post-processing effects
-                    context.SetRenderSize(superResolution.displaySize);
+                    context.SetRenderSize(superResolution.UpscaleSize);
 
-                    var fsrTarget = m_TargetPool.Get();
+                    var upscaleTarget = m_TargetPool.Get();
                     var finalDestination = context.destination;
-                    context.GetScreenSpaceTemporaryRT(cmd, fsrTarget, 0, context.sourceFormat, isUpscaleOutput: true);
-                    context.destination = fsrTarget;
-                    superResolution.colorOpaqueOnly = m_opaqueOnly;
+                    context.GetScreenSpaceTemporaryRT(cmd, upscaleTarget, 0, context.sourceFormat, isUpscaleOutput: true);
+                    context.destination = upscaleTarget;
+                    superResolution.ColorOpaqueOnly = m_opaqueOnly;
                     superResolution.Render(context);
-                    context.source = fsrTarget;
+                    context.source = upscaleTarget;
                     context.destination = finalDestination;
                     
                     // Disable dynamic scaling on render targets, so all subsequent effects will be applied on the full resolution upscaled image 
@@ -1214,7 +1214,7 @@ namespace UnityEngine.Rendering.PostProcessing
                     if (lastTarget > -1)
                         cmd.ReleaseTemporaryRT(lastTarget);
 
-                    lastTarget = fsrTarget;
+                    lastTarget = upscaleTarget;
                 }
 
                 bool hasBeforeStackEffects = HasActiveEffects(PostProcessEvent.BeforeStack, context);

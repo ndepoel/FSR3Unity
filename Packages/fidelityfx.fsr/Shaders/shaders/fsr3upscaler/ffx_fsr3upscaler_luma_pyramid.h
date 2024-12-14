@@ -47,6 +47,12 @@ FFX_STATIC const FfxInt32 LOG_LUMA        = 0;
 FFX_STATIC const FfxInt32 LUMA            = 1;
 FFX_STATIC const FfxInt32 DEPTH_IN_METERS = 2;
 
+#ifdef SHADER_API_GLCORE
+FFX_STATIC const FfxInt32 MAX_MIP         = 4;
+#else
+FFX_STATIC const FfxInt32 MAX_MIP         = 5;
+#endif
+
 FfxFloat32x4 SpdLoadSourceImage(FfxFloat32x2 iPxPos, FfxUInt32 slice)
 {
     //We assume linear data. if non-linear input (sRGB, ...),
@@ -67,7 +73,7 @@ FfxFloat32x4 SpdLoadSourceImage(FfxFloat32x2 iPxPos, FfxUInt32 slice)
 
 FfxFloat32x4 SpdLoad(FfxInt32x2 tex, FfxUInt32 slice)
 {
-    return FfxFloat32x4(RWLoadPyramid(tex, 5), 0, 0);
+    return FfxFloat32x4(RWLoadPyramid(tex, MAX_MIP), 0, 0);
 }
 
 FfxFloat32x4 SpdReduce4(FfxFloat32x4 v0, FfxFloat32x4 v1, FfxFloat32x4 v2, FfxFloat32x4 v3)
@@ -77,7 +83,7 @@ FfxFloat32x4 SpdReduce4(FfxFloat32x4 v0, FfxFloat32x4 v1, FfxFloat32x4 v2, FfxFl
 
 void SpdStore(FfxInt32x2 pix, FfxFloat32x4 outValue, FfxUInt32 index, FfxUInt32 slice)
 {
-    if (index == 5)
+    if (index == MAX_MIP)
     {
         StorePyramid(pix, outValue.xy, index);
     }

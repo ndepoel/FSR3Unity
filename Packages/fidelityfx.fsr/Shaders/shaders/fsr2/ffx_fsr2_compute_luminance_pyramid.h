@@ -83,6 +83,7 @@ void SpdStore(FfxInt32x2 pix, FfxFloat32x4 outValue, FfxUInt32 index, FfxUInt32 
             {
                 FfxFloat32 rate = 1.0f;
                 result = prev + (result - prev) * (1 - exp(-DeltaTime() * rate));
+                result = ffxMax(0.0f, result);
             }
             FfxFloat32x2 spdOutput = FfxFloat32x2(ComputeAutoExposureFromLavg(result), result);
             SPD_SetExposureBuffer(spdOutput);

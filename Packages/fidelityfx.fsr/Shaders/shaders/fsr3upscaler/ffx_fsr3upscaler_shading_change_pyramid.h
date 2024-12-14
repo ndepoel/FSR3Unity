@@ -47,6 +47,12 @@ FFX_STATIC const FfxInt32 DIFFERENCE        = 0;
 FFX_STATIC const FfxInt32 SIGN_SUM          = 1;
 FFX_STATIC const FfxInt32 MIP0_INDICATOR    = 2;
 
+#ifdef SHADER_API_GLCORE
+FFX_STATIC const FfxInt32 MAX_MIP           = 4;
+#else
+FFX_STATIC const FfxInt32 MAX_MIP           = 5;
+#endif
+
 FfxFloat32x2 Sort2(FfxFloat32x2 v)
 {
     return FfxFloat32x2(ffxMin(v.x, v.y), ffxMax(v.x, v.y));
@@ -200,7 +206,7 @@ FfxFloat32x4 SpdLoadSourceImage(FfxFloat32x2 iPxPos, FfxUInt32 slice)
 
 FfxFloat32x4 SpdLoad(FfxInt32x2 tex, FfxUInt32 slice)
 {
-    return FfxFloat32x4(RWLoadPyramid(tex, 5), 0, 0);
+    return FfxFloat32x4(RWLoadPyramid(tex, MAX_MIP), 0, 0);
 }
 
 FfxFloat32x4 SpdReduce4(FfxFloat32x4 v0, FfxFloat32x4 v1, FfxFloat32x4 v2, FfxFloat32x4 v3)

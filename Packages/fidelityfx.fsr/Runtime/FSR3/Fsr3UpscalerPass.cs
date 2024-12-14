@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -40,7 +41,7 @@ namespace FidelityFX.FSR3
         protected ComputeShader ComputeShader;
         protected int KernelIndex;
 
-        protected CustomSampler Sampler;
+        private CustomSampler _sampler;
         
         protected Fsr3UpscalerPass(Fsr3Upscaler.ContextDescription contextDescription, Fsr3UpscalerResources resources, ComputeBuffer constants)
         {
@@ -55,9 +56,9 @@ namespace FidelityFX.FSR3
 
         public void ScheduleDispatch(CommandBuffer commandBuffer, Fsr3Upscaler.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY)
         {
-            commandBuffer.BeginSample(Sampler);
+            BeginSample(commandBuffer);
             DoScheduleDispatch(commandBuffer, dispatchParams, frameIndex, dispatchX, dispatchY);
-            commandBuffer.EndSample(Sampler);
+            EndSample(commandBuffer);
         }
 
         protected abstract void DoScheduleDispatch(CommandBuffer commandBuffer, Fsr3Upscaler.DispatchDescription dispatchParams, int frameIndex, int dispatchX, int dispatchY);
@@ -76,7 +77,7 @@ namespace FidelityFX.FSR3
 
             ComputeShader = shader;
             KernelIndex = ComputeShader.FindKernel("CS");
-            Sampler = CustomSampler.Create(passName);
+            _sampler = CustomSampler.Create(passName);
 
             bool useLut = false;
 #if UNITY_2022_1_OR_NEWER   // This will also work in 2020.3.43+ and 2021.3.14+ 
@@ -93,6 +94,18 @@ namespace FidelityFX.FSR3
             if ((flags & Fsr3Upscaler.InitializationFlags.EnableDepthInverted) != 0) ComputeShader.EnableKeyword("FFX_FSR3UPSCALER_OPTION_INVERTED_DEPTH");
             if (useLut) ComputeShader.EnableKeyword("FFX_FSR3UPSCALER_OPTION_REPROJECT_USE_LANCZOS_TYPE");
             if ((flags & Fsr3Upscaler.InitializationFlags.EnableFP16Usage) != 0) ComputeShader.EnableKeyword("FFX_HALF");
+        }
+
+        [Conditional("ENABLE_PROFILER")]
+        protected void BeginSample(CommandBuffer cmd)
+        {
+            cmd.BeginSample(_sampler);
+        }
+
+        [Conditional("ENABLE_PROFILER")]
+        protected void EndSample(CommandBuffer cmd)
+        {
+            cmd.EndSample(_sampler);
         }
     }
     
@@ -384,7 +397,7 @@ namespace FidelityFX.FSR3
 
         public void ScheduleDispatch(CommandBuffer commandBuffer, Fsr3Upscaler.GenerateReactiveDescription dispatchParams, int dispatchX, int dispatchY)
         {
-            commandBuffer.BeginSample(Sampler);
+            BeginSample(commandBuffer);
             
             ref var opaqueOnly = ref dispatchParams.ColorOpaqueOnly;
             ref var color = ref dispatchParams.ColorPreUpscale;
@@ -398,7 +411,7 @@ namespace FidelityFX.FSR3
             
             commandBuffer.DispatchCompute(ComputeShader, KernelIndex, dispatchX, dispatchY, 1);
             
-            commandBuffer.EndSample(Sampler);
+            EndSample(commandBuffer);
         }
     }
 

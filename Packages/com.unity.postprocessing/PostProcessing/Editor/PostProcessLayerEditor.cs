@@ -30,9 +30,11 @@ namespace UnityEditor.Rendering.PostProcessing
         SerializedProperty m_FxaaFastMode;
         SerializedProperty m_FxaaKeepAlpha;
 
+        SerializedProperty m_UpscalerType;
         SerializedProperty m_FsrQualityMode;
         SerializedProperty m_FsrPerformSharpen;
         SerializedProperty m_FsrSharpness;
+        SerializedProperty m_FsrVelocityFactor;
         SerializedProperty m_FsrExposureSource;
         SerializedProperty m_FsrExposureTexture;
         SerializedProperty m_FsrPreExposure;
@@ -62,7 +64,7 @@ namespace UnityEditor.Rendering.PostProcessing
             new GUIContent("Fast Approximate Anti-aliasing (FXAA)"),
             new GUIContent("Subpixel Morphological Anti-aliasing (SMAA)"),
             new GUIContent("Temporal Anti-aliasing (TAA)"),
-            new GUIContent("FidelityFX Super Resolution 3 (FSR3) Upscaler")
+            new GUIContent("Advanced Upscaling")
         };
 
         enum ExportMode
@@ -89,9 +91,11 @@ namespace UnityEditor.Rendering.PostProcessing
             m_FxaaFastMode = FindProperty(x => x.fastApproximateAntialiasing.fastMode);
             m_FxaaKeepAlpha = FindProperty(x => x.fastApproximateAntialiasing.keepAlpha);
 
+            m_UpscalerType = FindProperty(x => x.superResolution.upscalerType);
             m_FsrQualityMode = FindProperty(x => x.superResolution.qualityMode);
             m_FsrPerformSharpen = FindProperty(x => x.superResolution.performSharpenPass);
             m_FsrSharpness = FindProperty(x => x.superResolution.sharpness);
+            m_FsrVelocityFactor = FindProperty(x => x.superResolution.velocityFactor);
             m_FsrExposureSource = FindProperty(x => x.superResolution.exposureSource);
             m_FsrExposureTexture = FindProperty(x => x.superResolution.exposure);
             m_FsrPreExposure = FindProperty(x => x.superResolution.preExposure);
@@ -222,13 +226,15 @@ namespace UnityEditor.Rendering.PostProcessing
                     if (!m_FxaaFastMode.boolValue && EditorUtilities.isTargetingConsolesOrMobiles)
                         EditorGUILayout.HelpBox("For performance reasons it is recommended to use Fast Mode on mobile and console platforms.", MessageType.Warning);
                 }
-                else if (m_AntialiasingMode.intValue == (int)PostProcessLayer.Antialiasing.SuperResolution)
+                else if (m_AntialiasingMode.intValue == (int)PostProcessLayer.Antialiasing.AdvancedUpscaling)
                 {
+                    EditorGUILayout.PropertyField(m_UpscalerType);
                     EditorGUILayout.PropertyField(m_FsrQualityMode);
                     EditorGUILayout.PropertyField(m_FsrPerformSharpen);
                     EditorGUILayout.PropertyField(m_FsrSharpness);
+                    EditorGUILayout.PropertyField(m_FsrVelocityFactor);
                     EditorGUILayout.PropertyField(m_FsrExposureSource);
-                    if (m_FsrExposureSource.intValue == (int)SuperResolution.ExposureSource.Manual) EditorGUILayout.PropertyField(m_FsrExposureTexture);
+                    if (m_FsrExposureSource.intValue == (int)Upscaling.ExposureSource.Manual) EditorGUILayout.PropertyField(m_FsrExposureTexture);
                     EditorGUILayout.PropertyField(m_FsrPreExposure);
                     EditorGUILayout.PropertyField(m_FsrDebugView);
                     EditorGUILayout.PropertyField(m_FsrAutoReactive);

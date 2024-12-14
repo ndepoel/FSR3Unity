@@ -38,6 +38,11 @@
 //#pragma require Native16Bit
 //#endif
 
+// Allow use of Xbox Series-specific optimizations
+// #if defined(SHADER_API_GAMECORE_XBOXSERIES)
+// #define __XBOX_SCARLETT
+// #endif
+
 // Hack to work around the lack of texture atomics on Metal
 #if defined(SHADER_API_METAL)
 #define InterlockedAdd(dest, val, orig)     { (orig) = (dest); (dest) += (val); }

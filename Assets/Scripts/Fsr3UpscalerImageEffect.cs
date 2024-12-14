@@ -43,6 +43,9 @@ namespace FidelityFX
         public bool performSharpenPass = true;
         [Tooltip("Strength of the sharpening effect.")]
         [Range(0, 1)] public float sharpness = 0.8f;
+        
+        [Tooltip("Adjust the influence of motion vectors on temporal accumulation.")]
+        [Range(0, 1)] public float velocityFactor = 1.0f;
 
         [Header("Exposure")]
         [Tooltip("Allow an exposure value to be computed internally. When set to false, either the provided exposure texture or a default exposure value will be used.")]
@@ -333,6 +336,7 @@ namespace FidelityFX
             _dispatchDescription.CameraFar = _renderCamera.farClipPlane;
             _dispatchDescription.CameraFovAngleVertical = _renderCamera.fieldOfView * Mathf.Deg2Rad;
             _dispatchDescription.ViewSpaceToMetersFactor = 1.0f; // 1 unit is 1 meter in Unity
+            _dispatchDescription.VelocityFactor = velocityFactor;
             _dispatchDescription.Reset = _resetHistory;
             _dispatchDescription.Flags = enableDebugView ? Fsr3Upscaler.DispatchFlags.DrawDebugView : 0;
             _resetHistory = false;

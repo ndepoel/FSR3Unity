@@ -54,7 +54,7 @@ FFX_STATIC const FfxFloat32 fAverageLanczosWeightPerFrame = 0.74f * fUpsampleLan
 FFX_STATIC const FfxFloat32 fAccumulationMaxOnMotion = 3.0f * fUpsampleLanczosWeightScale;
 
 // Auto exposure
-FFX_STATIC const FfxFloat32 resetAutoExposureAverageSmoothing = 1e8f;
+FFX_STATIC const FfxFloat32 resetAutoExposureAverageSmoothing = 1e4f;
 
 struct AccumulationPassCommonParams
 {
@@ -508,6 +508,32 @@ FfxFloat32x3 UnprepareRgb(FfxFloat32x3 fRgb, FfxFloat32 fExposure)
 
     return fRgb;
 }
+
+#if FFX_HALF && defined(__XBOX_SCARLETT) && defined(__XBATG_EXTRA_16_BIT_OPTIMISATION) && (__XBATG_EXTRA_16_BIT_OPTIMISATION == 1)
+
+void PrepareRgbPaired(inout FFX_MIN16_F2 r, inout FFX_MIN16_F2 g, inout FFX_MIN16_F2 b, FfxFloat32 fExposure, FfxFloat32 fPreExposure)
+{
+    FFX_MIN16_F ExposureOverPreExposureOver = FFX_MIN16_F(fExposure / fPreExposure);
+
+    r *= ExposureOverPreExposureOver;
+    g *= ExposureOverPreExposureOver;
+    b *= ExposureOverPreExposureOver;
+
+    r = ffxClampHalf(r, 0.0, FSR2_FP16_MAX);
+    g = ffxClampHalf(g, 0.0, FSR2_FP16_MAX);
+    b = ffxClampHalf(b, 0.0, FSR2_FP16_MAX);
+}
+
+void UnprepareRgbPaired(inout FFX_MIN16_F2 r, inout FFX_MIN16_F2 g, inout FFX_MIN16_F2 b, FfxFloat32 fExposure)
+{
+    FFX_MIN16_F PreExposureOverExposure = FFX_MIN16_F(PreExposure() / fExposure);
+
+    r *= PreExposureOverExposure;
+    g *= PreExposureOverExposure;
+    b *= PreExposureOverExposure;
+}
+
+#endif
 
 
 struct BilinearSamplingData

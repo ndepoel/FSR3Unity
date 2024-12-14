@@ -165,9 +165,6 @@ Dynamic resolution works really well in combination with FSR3 Upscaler. Any run-
 
 ## Known issues
 
-- Enabling Auto Exposure causes artifacting in OpenGL Core on Nvidia GPUs.  
-  It's uncertain what is causing this. Further investigation is required.  
-  Workaround: disable Auto Exposure on affected platforms.
 - Texture mipmap bias adjustment is not working on MacOS Metal.  
   This causes blurry textures as the internal render resolution is lowered. This is a Unity issue of some sort.  
   Workaround: no known workaround yet.
